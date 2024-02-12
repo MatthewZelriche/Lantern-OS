@@ -6,5 +6,6 @@ command = "cargo"
 args = ["clean"]
 
 [tasks.raspi3]
+workspace = false
 command = "cargo"
 args = ["build", "--bin", "raspi", "--target", "aarch64-unknown-none"]

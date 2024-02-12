@@ -1,9 +1,10 @@
 #![no_std]
 #![no_main]
 
+use kernel::kmain;
 
-fn kstart() -> ! {
-    loop {}
+pub fn kstart() -> ! {
+    kmain()
 }
 
 
