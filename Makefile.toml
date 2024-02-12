@@ -1,0 +1,10 @@
+[env]
+CARGO_MAKE_EXTEND_WORKSPACE_MAKEFILE = true
+
+[tasks.clean]
+command = "cargo"
+args = ["clean"]
+
+[tasks.raspi3]
+command = "cargo"
+args = ["build"]
