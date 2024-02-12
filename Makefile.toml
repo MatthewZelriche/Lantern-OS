@@ -7,4 +7,4 @@ args = ["clean"]
 
 [tasks.raspi3]
 command = "cargo"
-args = ["build"]
+args = ["build", "--bin", "raspi", "--target", "aarch64-unknown-none"]
