@@ -1,14 +1,17 @@
 #![no_std]
 #![no_main]
 
+use core::{arch::global_asm, panic::PanicInfo};
 use kernel::kmain;
 
-pub fn kstart() -> ! {
+global_asm!(include_str!("main.S"));
+
+#[no_mangle]
+pub extern "C" fn bootloader_main() -> ! {
     kmain()
 }
 
 
-use core::panic::PanicInfo;
 #[panic_handler]
 fn panic(_: &PanicInfo) -> ! {
 

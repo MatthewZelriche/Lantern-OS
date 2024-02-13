@@ -1,11 +1,24 @@
 [env]
 CARGO_MAKE_EXTEND_WORKSPACE_MAKEFILE = true
 
+[env.release]
+BUILD_TYPE = "release"
+
 [tasks.clean]
 command = "cargo"
 args = ["clean"]
 
 [tasks.raspi3]
 workspace = false
-command = "cargo"
-args = ["build", "--bin", "raspi", "--target", "aarch64-unknown-none"]
+script = '''
+export RPI=3
+mkdir -p out
+cargo objcopy --bin raspi --target aarch64-unknown-none -- -O binary out/kernel8.img
+'''
+
+[tasks.raspi3-qemu]
+workspace = false
+dependencies = ["raspi3"]
+script = '''
+qemu-system-aarch64 -monitor stdio -M raspi3b -kernel out/kernel8.img
+'''
