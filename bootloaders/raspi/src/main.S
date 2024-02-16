@@ -18,8 +18,8 @@ kstart:
       bl zero_bss
 
    to_rust:
-      # For now, just loads a linker symbol into a register and loops
-      # so we can view if the code executed successfully in QEMU
+      # When jumping to rust: 
+      # x0 contains the address of the start of the DTB
+      # x1 contains the rpi version we are running on/compiled for
       ldr x1, =__RPI_VER
-      loop:
-      bl loop
+      bl bootloader_main
