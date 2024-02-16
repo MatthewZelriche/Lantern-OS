@@ -26,6 +26,10 @@ SECTIONS {
     *(.text.*)
    }
 
+   /* Ensure other sections occur after .text so that the entry point remains at the start of the flat binary */
+   .data : { *(.data); *(.data.*) }
+   .rodata : { *(.rodata); *(.rodata.*) }
+
    /* Ensure BSS is at the very end, so we don't have to store a zeroed section of the kernel image. */
    __BSS_START = .;
    .bss : {
