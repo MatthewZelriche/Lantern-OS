@@ -19,9 +19,19 @@ SECTIONS {
       This address is set by build.rs for the raspi crate
     */
    . = __START_ADDR;
+   __TEMP_STACK_START = .; /* Specify a temporary stack region before the entry point */
    .text : {
     *(.text.boot) /* This section is manually set in main.S to ensure entry point is at __START_ADDR */
     *(.text)
     *(.text.*)
    }
+
+   /* Ensure BSS is at the very end, so we don't have to store a zeroed section of the kernel image. */
+   __BSS_START = .;
+   .bss : {
+      *(.bss)
+      *(.bss.*)
+   }
+   . = ALIGN(8); /* Align to an 8 byte boundary because we use str to zero 8 bytes at a time in asm */
+   __BSS_END = .;
 }
