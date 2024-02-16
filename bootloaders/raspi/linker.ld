@@ -31,11 +31,12 @@ SECTIONS {
    .rodata : { *(.rodata); *(.rodata.*) }
 
    /* Ensure BSS is at the very end, so we don't have to store a zeroed section of the kernel image. */
+   . = ALIGN(8);
    __BSS_START = .;
    .bss : {
       *(.bss)
       *(.bss.*)
    }
-   . = ALIGN(8); /* Align to an 8 byte boundary because we use str to zero 8 bytes at a time in asm */
+   . = ALIGN(8);  /* Ensure total size ends up a multiple of 8 for our bss zeroing asm code */
    __BSS_END = .;
 }

@@ -20,6 +20,4 @@ kstart:
    to_rust:
       # When jumping to rust: 
       # x0 contains the address of the start of the DTB
-      # x1 contains the rpi version we are running on/compiled for
-      ldr x1, =__RPI_VER
       bl bootloader_main

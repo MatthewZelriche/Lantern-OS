@@ -3,5 +3,9 @@ name = "raspi"
 version = "0.1.0"
 edition = "2021"
 
+[features]
+raspi3 = []
+raspi4 = []
+
 [dependencies]
 kernel = { path = "../../kernel" }
