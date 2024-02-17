@@ -1,3 +1,6 @@
+pub mod gpio;
+pub mod uart0;
+
 #[cfg(feature = "raspi3")]
 pub const MMIO_BASE: usize = 0x3F000000;
 #[cfg(feature = "raspi4")]
