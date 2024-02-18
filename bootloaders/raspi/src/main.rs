@@ -2,7 +2,7 @@
 #![no_main]
 
 use core::{arch::global_asm, ffi::c_void, panic::PanicInfo};
-use device_drivers::{gpio::{Gpio, GPIO_PHYS_BASE}, uart0::Uart0};
+use device_drivers::{gpio::{Gpio, GPIO_PHYS_BASE}, uart0::{Pl011, PL011_PHYS_BASE}};
 use kernel::kmain;
 
 mod device_drivers;
@@ -18,11 +18,13 @@ global_asm!(include_str!("main.S"));
 pub extern "C" fn bootloader_main(dtb_ptr: *const c_void) -> ! {  
     // Create our drivers that we will use for the duration of the bootloader
     let mut gpio: Gpio;
-    let mut uart: Uart0;
+    let mut uart: Pl011;
     unsafe {
         gpio = Gpio::new(GPIO_PHYS_BASE);
-        uart = Uart0::new(&mut gpio);
+        uart = Pl011::new(PL011_PHYS_BASE, &mut gpio);
     }
+
+    uart.write_byte(b'b');
 
     kmain()
 }
