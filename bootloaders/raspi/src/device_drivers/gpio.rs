@@ -1,9 +1,15 @@
 use core::arch::asm;
 
 use kernel::util::register_ref::RegisterRef;
-use tock_registers::{interfaces::ReadWriteable, register_bitfields, register_structs, registers::ReadWrite};
+use tock_registers::{
+    interfaces::ReadWriteable, register_bitfields, register_structs, registers::ReadWrite,
+};
 
-use self::{GPIO_PUP_PDN_CNTRL_REG0::{GPIO_PUP_PDN_CNTRL14, GPIO_PUP_PDN_CNTRL15}, GPPUD::PUD, GPPUDCLK0::{PUDCLK14, PUDCLK15}};
+use self::{
+    GPIO_PUP_PDN_CNTRL_REG0::{GPIO_PUP_PDN_CNTRL14, GPIO_PUP_PDN_CNTRL15},
+    GPPUD::PUD,
+    GPPUDCLK0::{PUDCLK14, PUDCLK15},
+};
 
 use super::MMIO_BASE;
 
@@ -22,7 +28,7 @@ register_structs! {
 }
 
 register_bitfields!(
-   u32, 
+   u32,
 
    GPPUD [
       PUD OFFSET(0) NUMBITS(2) [
@@ -55,51 +61,63 @@ register_bitfields!(
 );
 
 pub struct Gpio {
-   registers: RegisterRef<GpioRegisters>,
+    registers: RegisterRef<GpioRegisters>,
 }
 
-impl Gpio {   
-   /// Creates a new representation of the General Purpose I/O pins
-   /// 
-   /// This acts essentially as a simple wrapper around a chunk of MMIO specified by start_addr,
-   /// so that certain useful register manipulations can be abstracted away into method calls.
-   /// 
-   /// # Safety
-   /// start_addr must be dereferencable to GpioRegisters (ie, it must point to the correct start address in MMIO).
-   pub unsafe fn new(start_addr: usize) -> Self {
-      Self {
-         registers: RegisterRef::new(start_addr),
-      }
-   }
+impl Gpio {
+    /// Creates a new representation of the General Purpose I/O pins
+    ///
+    /// This acts essentially as a simple wrapper around a chunk of MMIO specified by start_addr,
+    /// so that certain useful register manipulations can be abstracted away into method calls.
+    ///
+    /// # Safety
+    /// start_addr must be dereferencable to GpioRegisters (ie, it must point to the correct start address in MMIO).
+    pub unsafe fn new(start_addr: usize) -> Self {
+        Self {
+            registers: RegisterRef::new(start_addr),
+        }
+    }
 
-   #[cfg(feature = "raspi3")]
-   /// Configures the GPIO pins 14 and 15 to be neither UP nor DOWN, as expected by UART0
-   pub fn configure_uart0_pull(&mut self) {
-      // We have to set pins 14 and 15 to neither pull up nor pull down
-      // Yet I still don't quite understand why this specific sequence of register writes
-      // It seems to be something to do with using GPPUD to specify the mode you want, then using 
-      // GPPUDCLKn as a mask for which pins to modify?
+    #[cfg(feature = "raspi3")]
+    /// Configures the GPIO pins 14 and 15 to be neither UP nor DOWN, as expected by UART0
+    pub fn configure_uart0_pull(&mut self) {
+        // We have to set pins 14 and 15 to neither pull up nor pull down
+        // Yet I still don't quite understand why this specific sequence of register writes
+        // It seems to be something to do with using GPPUD to specify the mode you want, then using
+        // GPPUDCLKn as a mask for which pins to modify?
 
-      // Note also that we need to spin for 150 clock cycles according to the documentation
-      // Ideally, we would use the microsecond clock, but to avoid pulling in additional things that can 
-      // go wrong during the initialization of something as important as UART0, I elected to just spin
-      // nops inside a for loop. This definitely overshoots 150 cycles but its only done once or twice 
-      // during initialization so it should be imperceptible. 
+        // Note also that we need to spin for 150 clock cycles according to the documentation
+        // Ideally, we would use the microsecond clock, but to avoid pulling in additional things that can
+        // go wrong during the initialization of something as important as UART0, I elected to just spin
+        // nops inside a for loop. This definitely overshoots 150 cycles but its only done once or twice
+        // during initialization so it should be imperceptible.
 
-      self.registers.gppud.modify(PUD::NONE);
-      unsafe { for i in [0..150] { asm!("nop"); } }
-      self.registers.gppudclk0.modify(PUDCLK14::SET);
-      self.registers.gppudclk0.modify(PUDCLK15::SET);
-      unsafe { for i in [0..150] { asm!("nop"); } }
-      // Docs tell us to clear gppud here, but its already set to 0 so surely it doesn't matter?
-      self.registers.gppudclk0.modify(PUDCLK14::CLEAR);
-      self.registers.gppudclk0.modify(PUDCLK15::CLEAR);
-   }
+        self.registers.gppud.modify(PUD::NONE);
+        unsafe {
+            for i in [0..150] {
+                asm!("nop");
+            }
+        }
+        self.registers.gppudclk0.modify(PUDCLK14::SET);
+        self.registers.gppudclk0.modify(PUDCLK15::SET);
+        unsafe {
+            for i in [0..150] {
+                asm!("nop");
+            }
+        }
+        // Docs tell us to clear gppud here, but its already set to 0 so surely it doesn't matter?
+        self.registers.gppudclk0.modify(PUDCLK14::CLEAR);
+        self.registers.gppudclk0.modify(PUDCLK15::CLEAR);
+    }
 
-   #[cfg(feature = "raspi4")]
-   /// Configures the GPIO pins 14 and 15 to be neither UP nor DOWN, as expected by UART0
-   pub fn configure_uart0_pull(&mut self) {
-      self.registers.pup_pdn_ctrl_reg0.modify(GPIO_PUP_PDN_CNTRL14::NONE);
-      self.registers.pup_pdn_ctrl_reg0.modify(GPIO_PUP_PDN_CNTRL15::NONE);
-   }
+    #[cfg(feature = "raspi4")]
+    /// Configures the GPIO pins 14 and 15 to be neither UP nor DOWN, as expected by UART0
+    pub fn configure_uart0_pull(&mut self) {
+        self.registers
+            .pup_pdn_ctrl_reg0
+            .modify(GPIO_PUP_PDN_CNTRL14::NONE);
+        self.registers
+            .pup_pdn_ctrl_reg0
+            .modify(GPIO_PUP_PDN_CNTRL15::NONE);
+    }
 }

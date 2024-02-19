@@ -4,7 +4,7 @@ pub mod uart0;
 #[cfg(feature = "raspi3")]
 pub const MMIO_BASE: usize = 0x3F000000;
 #[cfg(feature = "raspi4")]
-// "a peripheral described in this document ... [is] visible to the ARM at 0x0_FEnn_nnnn if Low Peripheral 
+// "a peripheral described in this document ... [is] visible to the ARM at 0x0_FEnn_nnnn if Low Peripheral
 // mode is enabled."
 // - BCM2711 ARM PERIPHERALS
 pub const MMIO_BASE: usize = 0xFE000000;
