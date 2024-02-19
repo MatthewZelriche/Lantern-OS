@@ -26,12 +26,12 @@ cargo objcopy --bin raspi --target aarch64-unknown-none --features raspi4 -- -O 
 workspace = false
 dependencies = ["raspi3"]
 script = '''
-qemu-system-aarch64 -monitor stdio -M raspi3b -kernel out/kernel8.img
+qemu-system-aarch64 -serial stdio -M raspi3b -kernel out/kernel8.img
 '''
 
 [tasks.raspi4-qemu]
 workspace = false
 dependencies = ["raspi4"]
 script = '''
-${QEMU_PATH}/qemu-system-aarch64 -monitor stdio -M raspi4b -kernel out/kernel8.img
+${QEMU_PATH}/qemu-system-aarch64 -serial stdio -M raspi4b -kernel out/kernel8.img
 '''
