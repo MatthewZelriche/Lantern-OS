@@ -9,6 +9,8 @@ pub struct RegisterRef<T> {
     start_addr: *mut T,
 }
 
+unsafe impl<T: Send> Send for RegisterRef<T> {}
+
 impl<T> RegisterRef<T> {
     /// Wraps a tock-registers struct into a new RegisterRef
     ///
