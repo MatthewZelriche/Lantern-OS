@@ -1,5 +1,8 @@
 #![no_std]
 #![no_main]
+#![feature(custom_test_frameworks)]
+#![test_runner(test::test_runner)]
+#![reexport_test_harness_main = "test_main"]
 
 use core::{arch::global_asm, ffi::c_void, fmt::Write, panic::PanicInfo};
 use device_drivers::{
@@ -8,9 +11,11 @@ use device_drivers::{
 };
 use kernel::kmain;
 
-use crate::device_drivers::mailbox::{message::GetArmMemory, Mailbox, MAILBOX_PHYS_BASE};
+use crate::device_drivers::mailbox::{Mailbox, MAILBOX_PHYS_BASE};
 
 mod device_drivers;
+#[cfg(test)]
+mod test;
 
 #[cfg(feature = "raspi3")]
 static RASPI_VERSION: u8 = 3;
@@ -21,6 +26,9 @@ global_asm!(include_str!("main.S"));
 
 #[no_mangle]
 pub extern "C" fn bootloader_main(dtb_ptr: *const c_void) -> ! {
+    #[cfg(test)]
+    test_main();
+
     // Create our drivers that we will use for the duration of the bootloader
     let mut gpio: Gpio;
     let mut mailbox: Mailbox;
@@ -31,7 +39,7 @@ pub extern "C" fn bootloader_main(dtb_ptr: *const c_void) -> ! {
         uart = Pl011::new(PL011_PHYS_BASE, &mut gpio);
     }
 
-    writeln!(uart, "Transferring control from bootloader to kernel...");
+    writeln!(uart, "Transferring control from bootloader to kernel");
     kmain()
 }
 

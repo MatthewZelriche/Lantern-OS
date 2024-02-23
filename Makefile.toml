@@ -11,27 +11,35 @@ args = ["clean"]
 [tasks.raspi3]
 workspace = false
 script = '''
-mkdir -p out
-cargo objcopy --bin raspi --target aarch64-unknown-none --features raspi3 -- -O binary out/kernel8.img
+cargo build --bin raspi --target aarch64-unknown-none --features raspi3
 '''
 
 [tasks.raspi4]
 workspace = false
 script = '''
-mkdir -p out
-cargo objcopy --bin raspi --target aarch64-unknown-none --features raspi4 -- -O binary out/kernel8.img
+cargo build --bin raspi --target aarch64-unknown-none --features raspi4
 '''
 
 [tasks.raspi3-qemu]
 workspace = false
-dependencies = ["raspi3"]
 script = '''
-qemu-system-aarch64 -serial stdio -M raspi3b -kernel out/kernel8.img
+cargo run --bin raspi --target aarch64-unknown-none --features raspi3 -- raspi3
+'''
+
+[tasks.raspi3-test]
+workspace = false
+script = '''
+cargo test --package raspi --target aarch64-unknown-none --features raspi3 -- raspi3
 '''
 
 [tasks.raspi4-qemu]
 workspace = false
-dependencies = ["raspi4"]
 script = '''
-${QEMU_PATH}/qemu-system-aarch64 -serial stdio -M raspi4b -kernel out/kernel8.img
+cargo run --bin raspi --target aarch64-unknown-none --features raspi4 -- raspi4
+'''
+
+[tasks.raspi4-test]
+workspace = false
+script = '''
+cargo test --package raspi --target aarch64-unknown-none --features raspi4 -- raspi4
 '''
