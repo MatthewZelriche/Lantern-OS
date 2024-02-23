@@ -1,4 +1,5 @@
 pub mod gpio;
+pub mod mailbox;
 pub mod uart0;
 
 #[cfg(feature = "raspi3")]

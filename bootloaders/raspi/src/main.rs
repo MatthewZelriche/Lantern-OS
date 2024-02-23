@@ -8,6 +8,8 @@ use device_drivers::{
 };
 use kernel::kmain;
 
+use crate::device_drivers::mailbox::{message::GetArmMemory, Mailbox, MAILBOX_PHYS_BASE};
+
 mod device_drivers;
 
 #[cfg(feature = "raspi3")]
@@ -21,9 +23,11 @@ global_asm!(include_str!("main.S"));
 pub extern "C" fn bootloader_main(dtb_ptr: *const c_void) -> ! {
     // Create our drivers that we will use for the duration of the bootloader
     let mut gpio: Gpio;
+    let mut mailbox: Mailbox;
     let mut uart: Pl011;
     unsafe {
         gpio = Gpio::new(GPIO_PHYS_BASE);
+        mailbox = Mailbox::new(MAILBOX_PHYS_BASE);
         uart = Pl011::new(PL011_PHYS_BASE, &mut gpio);
     }
 
