@@ -10,7 +10,8 @@ use device_drivers::{
     uart0::{Pl011, PL011_PHYS_BASE},
 };
 use kernel::{
-    allocators::static_bump::StaticBumpAlloc, kmain, read_linker_var,
+    allocators::{static_box::StaticBox, static_bump::StaticBumpAlloc},
+    kmain, read_linker_var,
     util::linker_variables::__PG_SIZE,
 };
 
@@ -36,9 +37,6 @@ pub extern "C" fn bootloader_main(dtb_ptr: *const c_void) -> ! {
     let static_mem_size = read_linker_var!(__PG_SIZE);
     let mut static_alloc = unsafe { StaticBumpAlloc::new(static_mem_start, static_mem_size) };
 
-    #[cfg(test)]
-    test_main();
-
     // Create our drivers that we will use for the duration of the bootloader
     let mut gpio: Gpio;
     let mut mailbox: Mailbox;
@@ -49,10 +47,13 @@ pub extern "C" fn bootloader_main(dtb_ptr: *const c_void) -> ! {
         uart = Pl011::new(PL011_PHYS_BASE, &mut gpio);
     }
 
-    let writer = static_alloc.allocate(uart).unwrap();
-    writeln!(writer, "Transferring control from bootloader to kernel!");
+    let mut writer = StaticBox::new(uart, &mut static_alloc).unwrap();
+    writeln!(writer, "Hello from Raspi {} bootloader!", RASPI_VERSION);
 
-    kmain(writer)
+    #[cfg(test)]
+    test_main();
+
+    kmain()
 }
 
 #[panic_handler]

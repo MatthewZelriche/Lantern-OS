@@ -1,6 +1,5 @@
+use crate::{allocators::StaticAlloc, util::error::AllocError};
 use core::{alloc::Layout, ptr::NonNull};
-
-use crate::util::error::AllocError;
 
 pub struct StaticBumpAlloc {
     next: usize,
@@ -17,30 +16,26 @@ impl StaticBumpAlloc {
         }
     }
 
-    pub fn allocate<T>(&mut self, val: T) -> Result<&'static mut T, AllocError> {
-        let layout = Layout::new::<T>();
-        self.allocate_bytes(layout).map(|x| unsafe {
-            (x.as_ptr() as *mut T).write(val);
-            &mut *(x.as_ptr() as *mut T)
-        })
+    pub fn remaining(&self) -> usize {
+        self.mem_size - self.next
     }
-}
-
-unsafe trait StaticAlloc {
-    fn allocate_bytes(&mut self, layout: Layout) -> Result<NonNull<[u8]>, AllocError>;
 }
 
 unsafe impl StaticAlloc for StaticBumpAlloc {
     fn allocate_bytes(&mut self, layout: Layout) -> Result<NonNull<[u8]>, AllocError> {
-        let old_start = self.next;
+        // Make sure the start of this memory block is properly aligned
         let start = self.next.next_multiple_of(layout.align());
+        // Do we have enough remaining memory in this bump allocator?
+        let new_next = start + layout.size();
+        if new_next > self.mem_start + self.mem_size {
+            // We've ran out of memory!
+            return Err(AllocError);
+        }
+        self.next = new_next;
 
-        let res = Ok(NonNull::slice_from_raw_parts(
+        Ok(NonNull::slice_from_raw_parts(
             NonNull::new(start as *mut u8).unwrap(),
             layout.size(),
-        ));
-
-        self.next = start + layout.size();
-        res
+        ))
     }
 }
