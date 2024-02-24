@@ -1,3 +1,5 @@
+#![allow(unused_imports)] // Because some imports are used conditionally and mistakenly seen as unused
+
 use core::arch::asm;
 
 use kernel::util::register_ref::RegisterRef;
