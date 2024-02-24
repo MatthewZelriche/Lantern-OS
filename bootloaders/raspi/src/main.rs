@@ -10,14 +10,15 @@ use device_drivers::{
     uart0::{Pl011, PL011_PHYS_BASE},
 };
 use kernel::{
-    allocators::{static_box::StaticBox, static_bump::StaticBumpAlloc},
-    kmain, read_linker_var,
+    allocators::static_bump::StaticBumpAlloc, kmain, read_linker_var,
     util::linker_variables::__PG_SIZE,
 };
+use mutexed_writers::single_threaded_mutexed_writer::SingleThreadedMutexedWriter;
 
 use crate::device_drivers::mailbox::{Mailbox, MAILBOX_PHYS_BASE};
 
 mod device_drivers;
+mod mutexed_writers;
 #[cfg(test)]
 mod test;
 mod util;
@@ -47,8 +48,8 @@ pub extern "C" fn bootloader_main(dtb_ptr: *const c_void) -> ! {
         uart = Pl011::new(PL011_PHYS_BASE, &mut gpio);
     }
 
-    let mut writer = StaticBox::new(uart, &mut static_alloc).unwrap();
-    writeln!(writer, "Hello from Raspi {} bootloader!", RASPI_VERSION);
+    let mut writer = SingleThreadedMutexedWriter::new(uart);
+    writeln!(writer, "Hello from Mutexed Writer!");
 
     #[cfg(test)]
     test_main();
