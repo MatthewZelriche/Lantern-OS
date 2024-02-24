@@ -4,3 +4,6 @@ pub enum DeviceError {
     Busy,
     BadOperand,
 }
+
+#[derive(Debug)]
+pub struct AllocError;

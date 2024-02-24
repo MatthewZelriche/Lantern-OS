@@ -23,8 +23,8 @@ impl<T> SingleThreadedCell<T> {
     }
 
     /// Gets the wrapped value, if it exists
-    pub fn get(&self) -> Option<&mut T> {
-        unsafe { &mut *self.0.get() }.as_mut()
+    pub fn get(&self) -> Option<&T> {
+        unsafe { &*self.0.get() }.as_ref()
     }
 
     /// Destroys the wrapped value. Useful if you are about to enter a multithreaded environment and
