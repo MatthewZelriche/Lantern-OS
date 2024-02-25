@@ -4,7 +4,7 @@
 #![test_runner(test::test_runner)]
 #![reexport_test_harness_main = "test_main"]
 
-use core::{arch::global_asm, ffi::c_void, panic::PanicInfo};
+use core::{arch::global_asm, ffi::c_void};
 use device_drivers::{
     gpio::{Gpio, GPIO_PHYS_BASE},
     uart0::{Pl011, PL011_PHYS_BASE},
@@ -67,9 +67,4 @@ pub extern "C" fn bootloader_main(dtb_ptr: *const c_void) -> ! {
 
     kprintln!("Transferring control from bootloader to kernel...");
     kmain()
-}
-
-#[panic_handler]
-fn panic(_: &PanicInfo) -> ! {
-    loop {}
 }
