@@ -22,6 +22,9 @@ impl<T> StaticBox<T> {
         let layout = Layout::new::<T>();
         let this_ptr = allocator.allocate_bytes(layout)?.as_ptr() as *mut T;
         unsafe {
+            // Safety: Pointer is validly aligned thanks to StaticAlloc, and this memory is guarunteed to
+            // be owned exclusively by this StaticBox. The resulting pointer is also valid to dereference
+            // for the duration of StaticBox's existence.
             this_ptr.write(val);
         }
 
