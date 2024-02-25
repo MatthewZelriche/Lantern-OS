@@ -5,7 +5,7 @@ use tock_registers::{
     registers::{InMemoryRegister, ReadWrite},
 };
 
-use self::message::{MailboxMessageData, Message};
+use self::message::{MailboxMessageData, Message, STATUS_FAILURE};
 
 use super::MMIO_BASE;
 
@@ -60,22 +60,23 @@ impl Mailbox {
     /// so if virtual memory mapping is enabled a lookup from virt -> phys will be necessary first
     pub fn send_property_mail<T: MailboxMessageData>(
         &mut self,
-        message_addr: *mut Message<T>,
+        message: &mut Message<T>,
     ) -> Result<(), DeviceError> {
+        let message_ptr: *mut Message<T> = message;
         // If the CPU receiving queue is full, we can't send a message or we risk losing the reply
         // if the queue hasn't freed up space by the time the GPU services the request.
         if self.mbox_0.status.is_set(STATUS::FULL) {
             return Err(DeviceError::Busy);
         }
         // message_addr MUST be a physical address below 4GiB! It cannot be greater than 32 bits.
-        if message_addr as usize >= 0x100000000 {
+        if message_ptr as usize >= 0x100000000 {
             return Err(DeviceError::BadOperand);
         }
 
         // Write mailbox address upper 28 bits into mbox_1 read register
         // Write in channel 8, the property channel, the only channel supported
         let data: InMemoryRegister<u32, DATA::Register> = InMemoryRegister::new(0);
-        data.modify(DATA::ADDR.val(message_addr as u32 >> 4));
+        data.modify(DATA::ADDR.val(message_ptr as u32 >> 4));
         data.modify(DATA::CHANNEL.val(8));
 
         // Send data to the VideoCore
@@ -86,7 +87,38 @@ impl Mailbox {
         {
         }
 
-        // Response has returned to us
-        Ok(())
+        if message.status == STATUS_FAILURE {
+            Err(DeviceError::Other)
+        } else {
+            Ok(())
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{
+        message::{GetClockRate, SetClockRate, STATUS_FAILURE, STATUS_SUCCESS},
+        Mailbox, MAILBOX_PHYS_BASE,
+    };
+    use kernel::{kprint, kprintln};
+
+    #[test_case]
+    fn mailbox_tests() {
+        kprint!("Testing VideoCore Mailbox device driver...");
+
+        let mut mailbox = unsafe { Mailbox::new(MAILBOX_PHYS_BASE) };
+
+        // Try setting the clock rate for the UART...
+        let new_clock_rate = 3000000;
+        let mut message = SetClockRate::new(2, new_clock_rate);
+        mailbox.send_property_mail(&mut message).unwrap();
+
+        // Read the new clock rate to confirm it is correct
+        let mut message = GetClockRate::new(2);
+        mailbox.send_property_mail(&mut message).unwrap();
+        assert_eq!(message.data.rate, new_clock_rate);
+
+        kprintln!("Success!");
     }
 }
