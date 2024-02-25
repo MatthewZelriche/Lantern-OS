@@ -11,51 +11,73 @@
 //! the MMU is enabled or not. If the MMU is not enabled, we don't have access to hardware synchronization
 //! primitives, and we can't use a regular Mutex. But we can't just use a SingleThreadedMutex, because
 //! eventually the kernel will run in a multi-threaded environment.
-//!
-//! GlobalWriter is necessary because it acts as essentially an UnsafeCell wrapper around something we know
-//! is safe (our mutex implementation). This part is necessary because the core::fmt::Write trait requires
-//! a mutable reference. So we retrieve the mutable reference through the UnsafeCell, knowing that data races
-//! are prevented because MutexedWriter is guarunteed to prevent them.
 
 use crate::{
     allocators::static_box::StaticBox, device_drivers::character_device::CharacterDevice,
     util::single_threaded_cell::SingleThreadedCell,
 };
-use core::cell::UnsafeCell;
+use core::{cell::UnsafeCell, ops::DerefMut};
 
 pub static GLOBAL_WRITER: SingleThreadedCell<GlobalWriter> = SingleThreadedCell::new();
 
-/// A CharacterDevice that is being internally protected by a mutex
-///
-/// This trait is necessary so that we can assign the static GlobalWriter variable at runtime without knowing
-/// at compile time what Mutex implementation we plan to use. This allows us to set GlobalWriter to use
-/// a SingleThreadedLock during early init, and a regular SpinLock after early init.
-pub trait MutexedWriter: CharacterDevice + Send {}
+/// Essentially a carbon copy of lock_api's RawMutex, but without the const associated variable. We needed
+/// to strip that so that we can make it object safe for dyn.
+pub trait RawWriterMutex: Send {
+    fn lock(&self);
+    fn try_lock(&self) -> bool;
+    unsafe fn unlock(&self);
+}
 
 /// Represents a thread-safe global writer for use with print, println, etc.
-pub struct GlobalWriter(UnsafeCell<StaticBox<dyn MutexedWriter>>);
+///
+/// Internally, GlobalWriter uses a dynamic dispatch for two things: First, to erase hardware-specific
+/// details about the given CharacterDevice, and Second, to allow runtime swapping of the mutex we use
+/// to ensure there exists only one mutable reference to CharacterDevice at a time.
+pub struct GlobalWriter {
+    mutex: StaticBox<dyn RawWriterMutex>,
+    writer: UnsafeCell<StaticBox<dyn CharacterDevice>>,
+}
 
 impl GlobalWriter {
-    pub fn new(writer: StaticBox<dyn MutexedWriter>) -> Self {
-        Self(UnsafeCell::new(writer))
+    pub fn new(
+        writer: StaticBox<dyn CharacterDevice>,
+        mutex: StaticBox<dyn RawWriterMutex>,
+    ) -> Self {
+        Self {
+            mutex,
+            writer: UnsafeCell::new(writer),
+        }
     }
 
-    /// Gets a mutable reference to the underlying MutexedWriter
-    pub fn get(&self) -> &mut StaticBox<dyn MutexedWriter> {
-        // Safety: Safe because we mandate that MutexedWriter MUST be wrapped in a valid mutex.
-        // This provides us the ability to access &mut methods on MutexedWriter, without GlobalWriter
-        // needing to know about the specific mutex implementation we chose.
-        // TODO: Of all the things I've done in regards to GlobalWriter, this is the one thing I'm not
-        // confident is actually safe
-        unsafe { &mut *self.0.get() }
+    /// Locks the wrapped Character Device, returning an exclusive mutable reference for use in a closure.
+    ///
+    /// Beware of triggering deadlocks through the use of the closure. The caller should make their closure
+    /// as simple as possible to avoid deadlocks. The mutex that protects CharacterDevice is not released
+    /// until after the caller's closure returns successfully.
+    pub fn lock<F: FnOnce(&mut dyn CharacterDevice)>(&self, closure: F) {
+        self.mutex.lock();
+
+        // Safety: Safe because we enforce with the mutex that there will only ever be one mutable reference
+        // to the wrapped CharacterDevice. We can also safely know that there are no concurrent non-mutable
+        // references, because there is no way to externally access a non-mutable reference to CharacterDevice.
+        let writer = unsafe { &mut *self.writer.get() };
+        closure(writer.deref_mut());
+
+        unsafe {
+            // Safety: Every unlock must be paired with a successfull lock. We see trivially that we can't reach
+            // this point without a successful lock, and we know that the supplied closure can't unlock the
+            // mutex before we reach this point, because the mutex is only accessible from within GlobalWriter.
+            self.mutex.unlock();
+        }
     }
 }
 
 #[macro_export]
-macro_rules! print {
-    ($($arg:tt)*) => {
-        {
-            write!(print::GLOBAL_WRITER.get().unwrap().get(), $($arg)*).unwrap();
-        }
-    };
+macro_rules! kprint {
+    ($($arg:tt)*) => {{
+        print::GLOBAL_WRITER
+            .get()
+            .unwrap()
+            .lock(|writer| write!(writer, $($arg)*).unwrap());
+    }};
 }

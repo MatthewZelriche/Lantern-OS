@@ -11,19 +11,19 @@ use device_drivers::{
 };
 use kernel::{
     allocators::{static_box::StaticBox, static_bump::StaticBumpAlloc},
-    kmain, print,
-    print::{GlobalWriter, GLOBAL_WRITER},
+    kmain, kprint,
+    print::{self, GlobalWriter, GLOBAL_WRITER},
     read_linker_var,
     util::linker_variables::__PG_SIZE,
 };
-use mutexed_writers::single_threaded_mutexed_writer::SingleThreadedMutexedWriter;
+use writer_mutexes::single_threaded::SingleThreadedRawWriterMutex;
 
 use crate::device_drivers::mailbox::{Mailbox, MAILBOX_PHYS_BASE};
 
 mod device_drivers;
-mod mutexed_writers;
 #[cfg(test)]
 mod test;
+mod writer_mutexes;
 
 #[cfg(feature = "raspi3")]
 static RASPI_VERSION: u8 = 3;
@@ -45,7 +45,7 @@ pub extern "C" fn bootloader_main(dtb_ptr: *const c_void) -> ! {
     // Create our drivers that we will use for the duration of the bootloader
     let mut gpio: Gpio;
     let mut mailbox: Mailbox;
-    let mut uart: Pl011;
+    let uart: Pl011;
     unsafe {
         // Safety: The MMIO addresses are correct for the given Raspberry Pi board revision.
         gpio = Gpio::new(GPIO_PHYS_BASE);
@@ -54,14 +54,15 @@ pub extern "C" fn bootloader_main(dtb_ptr: *const c_void) -> ! {
     }
 
     // Construct the Single Threaded Global Writer we will use until we enable the MMU.
+    let static_uart = StaticBox::new(uart, &mut static_alloc).unwrap();
     unsafe {
         // Safety: We are in a single-threaded environment
-        let st_writer =
-            StaticBox::new(SingleThreadedMutexedWriter::new(uart), &mut static_alloc).unwrap();
-        GLOBAL_WRITER.set(GlobalWriter::new(st_writer));
+        let st_writer_mutex =
+            StaticBox::new(SingleThreadedRawWriterMutex::new(), &mut static_alloc).unwrap();
+        GLOBAL_WRITER.set(GlobalWriter::new(static_uart, st_writer_mutex));
     }
 
-    print!("Hello from Raspi {} bootloader\n", RASPI_VERSION);
+    kprint!("Hello from Raspi {} bootloader\n", RASPI_VERSION);
 
     #[cfg(test)]
     test_main();

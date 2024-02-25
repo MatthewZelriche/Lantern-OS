@@ -9,6 +9,6 @@ pub mod print;
 pub mod util;
 
 pub fn kmain() -> ! {
-    print!("Hello from kernel");
+    kprint!("Hello from kernel");
     loop {}
 }
