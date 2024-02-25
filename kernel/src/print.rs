@@ -81,3 +81,13 @@ macro_rules! kprint {
             .lock(|writer| write!(writer, $($arg)*).unwrap());
     }};
 }
+
+#[macro_export]
+macro_rules! kprintln {
+    ($($arg:tt)*) => {{
+        print::GLOBAL_WRITER
+            .get()
+            .unwrap()
+            .lock(|writer| writeln!(writer, $($arg)*).unwrap());
+    }};
+}

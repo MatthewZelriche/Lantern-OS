@@ -8,6 +8,6 @@ pub mod print;
 pub mod util;
 
 pub fn kmain() -> ! {
-    kprint!("Hello from kernel");
+    kprintln!("Hello from kernel");
     loop {}
 }

@@ -11,7 +11,7 @@ use device_drivers::{
 };
 use kernel::{
     allocators::{static_box::StaticBox, static_bump::StaticBumpAlloc},
-    kmain, kprint,
+    kmain, kprintln,
     print::{self, GlobalWriter, GLOBAL_WRITER},
     read_linker_var,
     util::linker_variables::__PG_SIZE,
@@ -62,11 +62,10 @@ pub extern "C" fn bootloader_main(dtb_ptr: *const c_void) -> ! {
         GLOBAL_WRITER.set(GlobalWriter::new(static_uart, st_writer_mutex));
     }
 
-    kprint!("Hello from Raspi {} bootloader\n", RASPI_VERSION);
-
     #[cfg(test)]
     test_main();
 
+    kprintln!("Transferring control from bootloader to kernel...");
     kmain()
 }
 
