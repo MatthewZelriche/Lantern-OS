@@ -36,7 +36,20 @@ static RASPI_VERSION: u8 = 4;
 global_asm!(include_str!("main.S"));
 
 #[no_mangle]
-pub extern "C" fn bootloader_main(dtb_ptr: *const c_void) -> ! {
+pub extern "C" fn bootloader_main(_dtb_ptr: *const c_void) -> ! {
+    // Performs critical early initialization that must be done before we can do virtually anything else,
+    // including before we can use print macros at all. Returns a static bump allocator that was created
+    // for the purposes of setting up the global writer.
+    let _static_alloc = early_init();
+
+    #[cfg(test)]
+    test_main();
+
+    kprintln!("Transferring control from bootloader to kernel...");
+    kmain()
+}
+
+fn early_init() -> StaticBumpAlloc {
     let static_mem_start = read_linker_var!(__PG_SIZE);
     let static_mem_size = read_linker_var!(__PG_SIZE);
     let mut static_alloc = unsafe {
@@ -72,9 +85,5 @@ pub extern "C" fn bootloader_main(dtb_ptr: *const c_void) -> ! {
         GLOBAL_WRITER.set(GlobalWriter::new(static_uart, st_writer_mutex));
     }
 
-    #[cfg(test)]
-    test_main();
-
-    kprintln!("Transferring control from bootloader to kernel...");
-    kmain()
+    static_alloc
 }
