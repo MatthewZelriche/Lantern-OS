@@ -75,7 +75,7 @@ impl GlobalWriter {
 #[macro_export]
 macro_rules! kprint {
     ($($arg:tt)*) => {{
-        print::GLOBAL_WRITER
+        crate::print::GLOBAL_WRITER
             .get()
             .unwrap()
             .lock(|writer| write!(writer, $($arg)*).unwrap());
@@ -85,7 +85,7 @@ macro_rules! kprint {
 #[macro_export]
 macro_rules! kprintln {
     ($($arg:tt)*) => {{
-        print::GLOBAL_WRITER
+        crate::print::GLOBAL_WRITER
             .get()
             .unwrap()
             .lock(|writer| writeln!(writer, $($arg)*).unwrap());
