@@ -34,27 +34,30 @@ global_asm!(include_str!("main.S"));
 
 #[no_mangle]
 pub extern "C" fn bootloader_main(dtb_ptr: *const c_void) -> ! {
-    // We don't have a memory map set up yet, but we know that the first page after the zero page will always
-    // be free
     let static_mem_start = read_linker_var!(__PG_SIZE);
     let static_mem_size = read_linker_var!(__PG_SIZE);
-    let mut static_alloc = unsafe { StaticBumpAlloc::new(static_mem_start, static_mem_size) };
+    let mut static_alloc = unsafe {
+        // Safety: We know that the first page after the zero page will always be free, so we can assign that
+        // block of memory to this bump allocator, so long as we never use it for anything else.
+        StaticBumpAlloc::new(static_mem_start, static_mem_size)
+    };
 
     // Create our drivers that we will use for the duration of the bootloader
     let mut gpio: Gpio;
     let mut mailbox: Mailbox;
     let mut uart: Pl011;
     unsafe {
+        // Safety: The MMIO addresses are correct for the given Raspberry Pi board revision.
         gpio = Gpio::new(GPIO_PHYS_BASE);
         mailbox = Mailbox::new(MAILBOX_PHYS_BASE);
         uart = Pl011::new(PL011_PHYS_BASE, &mut gpio);
     }
 
     // Construct the Single Threaded Global Writer we will use until we enable the MMU.
-    let st_writer =
-        StaticBox::new(SingleThreadedMutexedWriter::new(uart), &mut static_alloc).unwrap();
     unsafe {
         // Safety: We are in a single-threaded environment
+        let st_writer =
+            StaticBox::new(SingleThreadedMutexedWriter::new(uart), &mut static_alloc).unwrap();
         GLOBAL_WRITER.set(GlobalWriter::new(st_writer));
     }
 

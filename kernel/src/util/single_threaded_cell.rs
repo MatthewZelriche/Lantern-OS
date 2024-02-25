@@ -21,12 +21,14 @@ impl<T> SingleThreadedCell<T> {
     /// method safely if you can guaruntee it is being called in a single-threaded environment. This includes
     /// disabled interrupts!
     pub unsafe fn set(&self, val: T) {
-        let inner = unsafe { &mut *self.0.get() };
+        let inner = &mut *self.0.get();
         *inner = Some(val);
     }
 
     /// Gets the wrapped value, if it exists
     pub fn get(&self) -> Option<&T> {
+        // Safety: Safe because we enforced that mutable aliases to this data can only occur in a strictly
+        // single-threaded environment (through calls to the set method)
         unsafe { &*self.0.get() }.as_ref()
     }
 }

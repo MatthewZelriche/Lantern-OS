@@ -7,14 +7,6 @@ use tock_registers::{
 
 use self::message::{MailboxMessageData, Message};
 
-fn mmio_read(reg: usize) -> u32 {
-    unsafe { core::ptr::read_volatile(reg as *const u32) }
-}
-
-fn mmio_write(reg: usize, val: u32) {
-    unsafe { core::ptr::write_volatile(reg as *mut u32, val) }
-}
-
 use super::MMIO_BASE;
 
 pub mod message;

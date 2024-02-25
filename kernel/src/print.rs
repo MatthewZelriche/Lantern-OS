@@ -41,11 +41,12 @@ impl GlobalWriter {
     }
 
     /// Gets a mutable reference to the underlying MutexedWriter
-    ///
-    /// # Safety: Safe because we mandate that MutexedWriter MUST be wrapped in a valid mutex.
-    /// This provides us the ability to access &mut methods on MutexedWriter, without GlobalWriter
-    /// needing to know about the specific mutex implementation we chose.
     pub fn get(&self) -> &mut StaticBox<dyn MutexedWriter> {
+        // Safety: Safe because we mandate that MutexedWriter MUST be wrapped in a valid mutex.
+        // This provides us the ability to access &mut methods on MutexedWriter, without GlobalWriter
+        // needing to know about the specific mutex implementation we chose.
+        // TODO: Of all the things I've done in regards to GlobalWriter, this is the one thing I'm not
+        // confident is actually safe
         unsafe { &mut *self.0.get() }
     }
 }
