@@ -19,6 +19,8 @@ register_structs!(
       (0x04 => reserved0),
       (0x18 => fr: ReadOnly<u32, FR::Register>),
       (0x1C => reserved1),
+      (0x24 => ibrd: ReadWrite<u32, IBRD::Register>),
+      (0x28 => fbrd: ReadWrite<u32, FBRD::Register>),
       (0x2C => lcrh: ReadWrite<u32, LCRH::Register>),
       (0x30 => cr: ReadWrite<u32, CR::Register>),
       (0x34 => @END),
@@ -43,6 +45,14 @@ register_bitfields!(
       TXFF OFFSET(5),
       RXFF OFFSET(6),
       TXFE OFFSET(7),
+   ],
+
+   IBRD [
+      DIV OFFSET(0) NUMBITS(16),
+   ],
+
+   FBRD [
+    DIV OFFSET(0) NUMBITS(6),
    ],
 
    LCRH [
@@ -75,6 +85,10 @@ pub struct Pl011 {
 }
 
 impl Pl011 {
+    /// Creates a new representation of the Pl011 UART0 device.
+    ///
+    /// Note: Currently the device driver assumes a UART clock rate of 3 Mhz, so this must be set
+    /// prior to calling this method
     pub unsafe fn new(start_addr: usize, gpio: &mut Gpio) -> Self {
         let registers: RegisterRef<UartRegisters> = RegisterRef::new(start_addr);
 
@@ -85,6 +99,9 @@ impl Pl011 {
         gpio.configure_uart0_pull();
 
         // TODO: Need to set baud rate before this works on real hardware
+        // Baud rate calculations from https://wiki.osdev.org/Raspberry_Pi_Bare_Bones
+        registers.ibrd.modify(IBRD::DIV.val(1));
+        registers.fbrd.modify(FBRD::DIV.val(40));
 
         // Enable FIFO queue and 8-bit words
         registers.lcrh.modify(LCRH::FEN::SET);

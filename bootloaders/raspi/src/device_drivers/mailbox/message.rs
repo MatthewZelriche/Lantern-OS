@@ -3,6 +3,8 @@ use core::mem::size_of;
 pub const STATUS_SUCCESS: u32 = 0x80000000;
 pub const STATUS_FAILURE: u32 = 0x80000001;
 
+pub const CLOCK_UART: u32 = 2;
+
 #[repr(C, align(16))]
 pub struct Message<T> {
     msgsize: u32,

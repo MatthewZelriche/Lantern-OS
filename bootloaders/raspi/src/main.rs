@@ -18,7 +18,10 @@ use kernel::{
 };
 use writer_mutexes::single_threaded::SingleThreadedRawWriterMutex;
 
-use crate::device_drivers::mailbox::{Mailbox, MAILBOX_PHYS_BASE};
+use crate::device_drivers::mailbox::{
+    message::{SetClockRate, CLOCK_UART},
+    Mailbox, MAILBOX_PHYS_BASE,
+};
 
 mod device_drivers;
 #[cfg(test)]
@@ -50,6 +53,13 @@ pub extern "C" fn bootloader_main(dtb_ptr: *const c_void) -> ! {
         // Safety: The MMIO addresses are correct for the given Raspberry Pi board revision.
         gpio = Gpio::new(GPIO_PHYS_BASE);
         mailbox = Mailbox::new(MAILBOX_PHYS_BASE);
+    }
+
+    // Set the UART frequency to a known value
+    let mut uart_rate_msg = SetClockRate::new(CLOCK_UART, 30000000);
+    mailbox.send_property_mail(&mut uart_rate_msg).unwrap();
+    unsafe {
+        // Safety: The MMIO address is correct and we have set the correct UART clock frequency
         uart = Pl011::new(PL011_PHYS_BASE, &mut gpio);
     }
 
