@@ -3,6 +3,7 @@ pub enum DeviceError {
     BadWrite,
     Busy,
     BadOperand,
+    Other,
 }
 
 #[derive(Debug)]

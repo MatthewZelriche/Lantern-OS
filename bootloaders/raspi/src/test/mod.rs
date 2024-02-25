@@ -1,17 +1,11 @@
-use crate::{
-    device_drivers::{
-        gpio::{Gpio, GPIO_PHYS_BASE},
-        mailbox::{Mailbox, MAILBOX_PHYS_BASE},
-        uart0::{Pl011, PL011_PHYS_BASE},
-    },
-    test::single_threaded_cell::SingleThreadedCell,
-};
-use core::fmt::Write;
+use kernel::kprintln;
 
 pub fn test_runner(tests: &[&dyn Fn()]) {
-    // TODO
+    kprintln!("TESTS BEGIN: RUNNING {} TESTS", tests.len());
 
     for test in tests {
         test();
     }
+
+    kprintln!("TESTS END\n");
 }
