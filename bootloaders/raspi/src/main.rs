@@ -4,7 +4,7 @@
 #![test_runner(test::test_runner)]
 #![reexport_test_harness_main = "test_main"]
 
-use core::{arch::global_asm, ffi::c_void};
+use core::arch::global_asm;
 use device_drivers::{
     gpio::{Gpio, GPIO_PHYS_BASE},
     uart0::{Pl011, PL011_PHYS_BASE},
@@ -18,12 +18,16 @@ use kernel::{
 };
 use writer_mutexes::single_threaded::SingleThreadedRawWriterMutex;
 
-use crate::device_drivers::mailbox::{
-    message::{SetClockRate, CLOCK_UART},
-    Mailbox, MAILBOX_PHYS_BASE,
+use crate::{
+    device_drivers::mailbox::{
+        message::{SetClockRate, CLOCK_UART},
+        Mailbox, MAILBOX_PHYS_BASE,
+    },
+    device_tree::RaspiDeviceTree,
 };
 
 mod device_drivers;
+mod device_tree;
 #[cfg(test)]
 mod test;
 mod writer_mutexes;
@@ -36,7 +40,7 @@ static RASPI_VERSION: u8 = 4;
 global_asm!(include_str!("main.S"));
 
 #[no_mangle]
-pub extern "C" fn bootloader_main(_dtb_ptr: *const c_void) -> ! {
+pub extern "C" fn bootloader_main(dtb_ptr: *const u8) -> ! {
     // Performs critical early initialization that must be done before we can do virtually anything else,
     // including before we can use print macros at all. Returns a static bump allocator that was created
     // for the purposes of setting up the global writer.
@@ -44,6 +48,16 @@ pub extern "C" fn bootloader_main(_dtb_ptr: *const c_void) -> ! {
 
     #[cfg(test)]
     test_main();
+
+    let dt = RaspiDeviceTree::new(dtb_ptr).expect("Failed to read device tree! Error");
+    dt.for_each_memory(|addr, size| {
+        kprintln!(
+            "Found RAM block from raspi{} DTB: Addr {:#010X}, Size {:#010X} bytes",
+            RASPI_VERSION,
+            addr,
+            size
+        );
+    });
 
     kprintln!("Transferring control from bootloader to kernel...");
     kmain()
