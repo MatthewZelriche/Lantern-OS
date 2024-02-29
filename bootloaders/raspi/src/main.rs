@@ -12,6 +12,7 @@ use device_drivers::{
 use kernel::{
     allocators::{static_box::StaticBox, static_bump::StaticBumpAlloc},
     kmain, kprintln,
+    memory::memory_size::MemorySize,
     print::{self, GlobalWriter, GLOBAL_WRITER},
     read_linker_var,
     util::linker_variables::__PG_SIZE,
@@ -52,10 +53,10 @@ pub extern "C" fn bootloader_main(dtb_ptr: *const u8) -> ! {
     let dt = RaspiDeviceTree::new(dtb_ptr).expect("Failed to read device tree! Error");
     dt.for_each_memory(|addr, size| {
         kprintln!(
-            "Found RAM block from raspi{} DTB: Addr {:#010X}, Size {:#010X} bytes",
+            "Found RAM block from raspi{} DTB: Addr {:#010X}, Size {:05} MiB",
             RASPI_VERSION,
             addr,
-            size
+            MemorySize::new(size as usize).as_mebibytes()
         );
     });
 

@@ -6,6 +6,7 @@ use core::panic::PanicInfo;
 
 pub mod allocators;
 pub mod device_drivers;
+pub mod memory;
 pub mod print;
 pub mod util;
 
