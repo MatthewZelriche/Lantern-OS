@@ -14,12 +14,7 @@ INCLUDE ../../../common.ld
 __START_ADDR = 0x80000;
 
 SECTIONS {
-   /* 
-      RPI expects boot code at a specific address. 
-      This address is set by build.rs for the raspi crate
-    */
    . = __START_ADDR;
-   __TEMP_STACK_START = .; /* Specify a temporary stack region before the entry point */
    .text : {
     *(.text.boot) /* This section is manually set in main.S to ensure entry point is at __START_ADDR */
     *(.text)
@@ -39,4 +34,10 @@ SECTIONS {
    }
    . = ALIGN(8);  /* Ensure total size ends up a multiple of 8 for our bss zeroing asm code */
    __BSS_END = .;
+   
+   /* Put our stack on the next page after the kernel */
+   . = ALIGN(__PG_SIZE);
+   __STACK_END = .;
+   . += __PG_SIZE;
+    __STACK_START = .;
 }

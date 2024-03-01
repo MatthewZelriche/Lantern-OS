@@ -2,7 +2,7 @@
 .globl kstart
 kstart:
    # Set up a temporary stack for the primary core before we transition over to rust code
-   ldr x1, =__TEMP_STACK_START
+   ldr x1, =__STACK_START
    mov sp, x1
 
    # Zero BSS, if such a section exists

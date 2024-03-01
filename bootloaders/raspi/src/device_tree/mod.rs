@@ -3,7 +3,6 @@ use fdt_rs::{
     error::DevTreeError,
     prelude::{FallibleIterator, PropReader},
 };
-use kernel::kprint;
 
 pub struct RaspiDeviceTree<'a> {
     address_cells: u32,
@@ -41,7 +40,7 @@ impl RaspiDeviceTree<'_> {
 
     /// Iterates over the device tree, parsing each memory region and passing the base address and size in bytes
     /// to the provided closure.
-    pub fn for_each_memory<F: Fn(u64, u64)>(&self, closure: F) {
+    pub fn for_each_memory<F: FnMut(u64, u64)>(&self, mut closure: F) {
         let mut node_iter = self.dt.nodes();
         // Find the next memory node in the tree
         while let Ok(Some(node)) = node_iter.find(|x| Ok(x.name()?.starts_with("memory@"))) {
