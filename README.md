@@ -37,6 +37,7 @@ cargo make clean
 - [X] Print Hello World with UART
 - [X] Implement safe global kprint macros for use in bootloader and kernel
 - [X] Set up custom test framework
+- [X] Implement physical page frame allocator
 - [ ] Parse dtb and construct a memory map
 - [ ] Enable the MMU to an identity mapping
 - [ ] Implement synchronization primitives with MMU support (mutex, barrier)
