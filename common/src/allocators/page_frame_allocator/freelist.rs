@@ -1,11 +1,11 @@
 pub struct FreelistEntry(Option<*mut FreelistEntry>);
 
-pub struct PageFrameAllocator {
+pub struct FreelistPFA {
     head: Option<*mut FreelistEntry>,
     free_count: usize,
 }
 
-impl PageFrameAllocator {
+impl FreelistPFA {
     pub const fn new() -> Self {
         Self {
             head: None,

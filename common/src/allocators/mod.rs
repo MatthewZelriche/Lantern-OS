@@ -1,6 +1,7 @@
 use crate::util::error::AllocError;
 use core::{alloc::Layout, ptr::NonNull};
 
+pub mod page_frame_allocator;
 pub mod static_box;
 pub mod static_bump;
 

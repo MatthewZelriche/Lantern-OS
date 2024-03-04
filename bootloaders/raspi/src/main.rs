@@ -5,9 +5,8 @@
 #![reexport_test_harness_main = "test_main"]
 
 use common::{
-    memory::{memory_size::MemorySize, page_frame_allocator::PageFrameAllocator},
-    read_linker_var,
-    util::linker_variables::__PG_SIZE,
+    allocators::page_frame_allocator::freelist::FreelistPFA, memory::memory_size::MemorySize,
+    read_linker_var, util::linker_variables::__PG_SIZE,
 };
 use core::{arch::global_asm, fmt::Write, panic::PanicInfo};
 use device_drivers::{
@@ -54,7 +53,7 @@ pub extern "C" fn bootloader_main(dtb_ptr: *const u8) -> ! {
     // subsequent frames up to 0x80000 (kernel start) are guarunteed to be free. With 4KiB pages, this gives
     // us just under half a MiB to add to the page frame allocator.
     // TODO: We can't support 1MiB pages on the raspi with this assumption
-    let mut frame_alloc = PageFrameAllocator::new();
+    let mut frame_alloc = FreelistPFA::new();
     let page_size = read_linker_var!(__PG_SIZE);
     for page in (0x1000_usize.next_multiple_of(page_size)..0x80000).step_by(page_size) {
         unsafe {
