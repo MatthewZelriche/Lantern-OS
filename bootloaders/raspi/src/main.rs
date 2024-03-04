@@ -9,7 +9,7 @@ use common::{
     read_linker_var,
     util::linker_variables::__PG_SIZE,
 };
-use core::{arch::global_asm, fmt::Write};
+use core::{arch::global_asm, fmt::Write, panic::PanicInfo};
 use device_drivers::{
     gpio::{Gpio, GPIO_PHYS_BASE},
     uart0::{Pl011, PL011_PHYS_BASE},
@@ -35,6 +35,8 @@ static RASPI_VERSION: u8 = 3;
 static RASPI_VERSION: u8 = 4;
 
 global_asm!(include_str!("main.S"));
+#[link_section = ".kernel"]
+static KERNEL: &'static [u8] = include_bytes!("../../../out/kernel");
 
 #[no_mangle]
 pub extern "C" fn bootloader_main(dtb_ptr: *const u8) -> ! {
@@ -105,4 +107,9 @@ fn early_init_uart() -> Pl011 {
     }
 
     uart
+}
+
+#[panic_handler]
+fn panic(_: &PanicInfo) -> ! {
+    loop {}
 }

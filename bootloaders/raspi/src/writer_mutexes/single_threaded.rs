@@ -1,4 +1,4 @@
-use kernel::print::RawWriterMutex;
+use common::concurrency::RawWriterMutex;
 
 pub struct SingleThreadedRawWriterMutex;
 

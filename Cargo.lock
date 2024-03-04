@@ -111,7 +111,6 @@ version = "0.1.0"
 dependencies = [
  "common",
  "fdt-rs",
- "kernel",
  "tock-registers",
 ]
 

@@ -13,20 +13,13 @@
 //! eventually the kernel will run in a multi-threaded environment.
 
 use common::{
-    allocators::static_box::StaticBox, device_drivers::character_device::CharacterDevice,
+    allocators::static_box::StaticBox, concurrency::RawWriterMutex,
+    device_drivers::character_device::CharacterDevice,
     util::single_threaded_cell::SingleThreadedCell,
 };
 use core::{cell::UnsafeCell, ops::DerefMut};
 
 pub static GLOBAL_WRITER: SingleThreadedCell<GlobalWriter> = SingleThreadedCell::new();
-
-/// Essentially a carbon copy of lock_api's RawMutex, but without the const associated variable. We needed
-/// to strip that so that we can make it object safe for dyn.
-pub trait RawWriterMutex: Send {
-    fn lock(&self);
-    fn try_lock(&self) -> bool;
-    unsafe fn unlock(&self);
-}
 
 /// Represents a thread-safe global writer for use with print, println, etc.
 ///

@@ -8,7 +8,6 @@ raspi3 = []
 raspi4 = []
 
 [dependencies]
-kernel = { path = "../../kernel" }
 common = { path = "../../common" }
 tock-registers = "0.9.0"
 

@@ -11,12 +11,18 @@ args = ["clean"]
 [tasks.raspi3]
 workspace = false
 script = '''
+cargo build --bin kernel --target aarch64-unknown-none --features raspi3
+mkdir -p out/
+rust-objcopy target/aarch64-unknown-none/debug/kernel -O binary out/kernel
 cargo build --bin raspi --target aarch64-unknown-none --features raspi3
 '''
 
 [tasks.raspi4]
 workspace = false
 script = '''
+cargo build --bin kernel --target aarch64-unknown-none --features raspi4
+mkdir -p out/
+rust-objcopy target/aarch64-unknown-none/debug/kernel -O binary out/kernel
 cargo build --bin raspi --target aarch64-unknown-none --features raspi4
 '''
 

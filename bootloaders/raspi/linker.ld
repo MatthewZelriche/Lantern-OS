@@ -40,4 +40,9 @@ SECTIONS {
    __STACK_END = .;
    . += __PG_SIZE;
     __STACK_START = .;
+
+    . = ALIGN(__PG_SIZE);
+    .kernel : AT(0x40000000) {
+      *(.kernel)
+    }
 }
