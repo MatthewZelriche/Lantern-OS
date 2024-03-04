@@ -9,6 +9,7 @@ raspi4 = []
 
 [dependencies]
 kernel = { path = "../../kernel" }
+common = { path = "../../common" }
 tock-registers = "0.9.0"
 
 [dependencies.fdt-rs]

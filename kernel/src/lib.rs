@@ -1,14 +1,8 @@
 #![no_std]
-#![feature(coerce_unsized)]
-#![feature(unsize)]
 
 use core::panic::PanicInfo;
 
-pub mod allocators;
-pub mod device_drivers;
-pub mod memory;
 pub mod print;
-pub mod util;
 
 pub fn kmain() -> ! {
     kprintln!("Hello from kernel");

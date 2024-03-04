@@ -12,7 +12,7 @@
 //! primitives, and we can't use a regular Mutex. But we can't just use a SingleThreadedMutex, because
 //! eventually the kernel will run in a multi-threaded environment.
 
-use crate::{
+use common::{
     allocators::static_box::StaticBox, device_drivers::character_device::CharacterDevice,
     util::single_threaded_cell::SingleThreadedCell,
 };

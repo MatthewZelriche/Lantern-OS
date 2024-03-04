@@ -1,6 +1,9 @@
 use core::fmt::Write;
 
-use kernel::{device_drivers::character_device::CharacterDevice, util::register_ref::RegisterRef};
+use common::{
+    device_drivers::character_device::CharacterDevice,
+    util::{error::DeviceError, register_ref::RegisterRef},
+};
 use tock_registers::{
     interfaces::{ReadWriteable, Readable, Writeable},
     register_bitfields, register_structs,
@@ -134,7 +137,7 @@ impl Pl011 {
 }
 
 impl CharacterDevice for Pl011 {
-    fn write(&mut self, data: &[u8]) -> Result<usize, kernel::util::error::DeviceError> {
+    fn write(&mut self, data: &[u8]) -> Result<usize, DeviceError> {
         for byte in data {
             self.write_byte(*byte);
         }
@@ -142,7 +145,7 @@ impl CharacterDevice for Pl011 {
         Ok(data.len())
     }
 
-    fn read(&mut self, buf: &mut [u8]) -> Result<usize, kernel::util::error::DeviceError> {
+    fn read(&mut self, buf: &mut [u8]) -> Result<usize, DeviceError> {
         let mut bytes_read = 0;
 
         for byte in buf {

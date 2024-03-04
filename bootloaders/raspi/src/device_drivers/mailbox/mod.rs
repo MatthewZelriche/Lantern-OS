@@ -1,4 +1,4 @@
-use kernel::util::{error::DeviceError, register_ref::RegisterRef};
+use common::util::{error::DeviceError, register_ref::RegisterRef};
 use tock_registers::{
     interfaces::{ReadWriteable, Readable, Writeable},
     register_bitfields, register_structs,

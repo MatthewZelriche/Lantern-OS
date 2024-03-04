@@ -4,16 +4,15 @@
 #![test_runner(test::test_runner)]
 #![reexport_test_harness_main = "test_main"]
 
+use common::{
+    memory::{memory_size::MemorySize, page_frame_allocator::PageFrameAllocator},
+    read_linker_var,
+    util::linker_variables::__PG_SIZE,
+};
 use core::{arch::global_asm, fmt::Write};
 use device_drivers::{
     gpio::{Gpio, GPIO_PHYS_BASE},
     uart0::{Pl011, PL011_PHYS_BASE},
-};
-use kernel::{
-    kmain, kprintln,
-    memory::{memory_size::MemorySize, page_frame_allocator::PageFrameAllocator},
-    print, read_linker_var,
-    util::linker_variables::__PG_SIZE,
 };
 
 use crate::{
@@ -85,9 +84,6 @@ pub extern "C" fn bootloader_main(dtb_ptr: *const u8) -> ! {
     loop {}
     #[cfg(test)]
     test_main();
-
-    kprintln!("Transferring control from bootloader to kernel...");
-    kmain()
 }
 
 fn early_init_uart() -> Pl011 {

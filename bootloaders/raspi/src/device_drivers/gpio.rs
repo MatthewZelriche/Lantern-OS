@@ -2,7 +2,7 @@
 
 use core::arch::asm;
 
-use kernel::util::register_ref::RegisterRef;
+use common::util::register_ref::RegisterRef;
 use tock_registers::{
     interfaces::ReadWriteable, register_bitfields, register_structs, registers::ReadWrite,
 };
