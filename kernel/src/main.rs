@@ -5,8 +5,10 @@ use core::panic::PanicInfo;
 
 pub mod print;
 
-pub fn kmain() -> ! {
-    kprintln!("Hello from kernel");
+// no_mangle is necessary to stop this fn from being optimized out
+#[link_section = ".text.boot"]
+#[no_mangle]
+pub extern "C" fn kmain() -> ! {
     loop {}
 }
 

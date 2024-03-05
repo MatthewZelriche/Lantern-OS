@@ -64,11 +64,12 @@ pub extern "C" fn bootloader_main(dtb_ptr: *const u8) -> ! {
     let mut saved_pfa =
         unsafe { BumpPFA::new(range_start, range_middle - page_size, page_size).unwrap() };
     let mut temp_pfa = unsafe { BumpPFA::new(range_middle, range_end, page_size).unwrap() };
+    println!(
+        "Initialized allocators for page tables in range {:#X} - {:#X}",
+        range_start, range_end
+    );
 
-    // TODO: Before we can proceed past this point, we need to set up the GLOBAL_WRITER.
     loop {}
-    #[cfg(test)]
-    test_main();
 }
 
 fn early_init_uart() -> Pl011 {

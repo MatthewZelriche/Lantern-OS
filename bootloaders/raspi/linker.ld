@@ -1,4 +1,5 @@
 INCLUDE ../../../common.ld
+ENTRY(kstart)
 
 /*
    TODO: RESEARCH
@@ -42,7 +43,7 @@ SECTIONS {
     __STACK_START = .;
 
     . = ALIGN(__PG_SIZE);
-    .kernel : AT(0x40000000) {
+    .kernel : {
       *(.kernel)
     }
 
