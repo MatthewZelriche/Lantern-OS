@@ -6,8 +6,12 @@
 
 use common::{
     allocators::page_frame_allocator::bump::BumpPFA,
+    concurrency::single_threaded_lock::SingleThreadedLock,
     read_linker_var,
-    util::linker_variables::{__KERNEL_END, __PG_SIZE},
+    util::{
+        linker_variables::{__KERNEL_END, __PG_SIZE},
+        single_threaded_cell::SingleThreadedCell,
+    },
 };
 use core::{arch::global_asm, fmt::Write, panic::PanicInfo};
 use device_drivers::{
@@ -35,12 +39,17 @@ global_asm!(include_str!("main.S"));
 #[link_section = ".kernel"]
 static KERNEL: &'static [u8] = include_bytes!("../../../out/kernel");
 
+static UART0: SingleThreadedCell<SingleThreadedLock<Pl011>> = SingleThreadedCell::new();
+
 #[no_mangle]
 pub extern "C" fn bootloader_main(dtb_ptr: *const u8) -> ! {
     // Set up a simple uart that we will use until we enable virtual memory mapping - to get some
     // meaningful output as early as possible.
-    let mut uart = early_init_uart();
-    writeln!(uart, "PL011 UART0 Device Driver initialized");
+    let uart = early_init_uart();
+    unsafe {
+        UART0.set(SingleThreadedLock::new(uart));
+    }
+    println!("PL011 UART0 Device Driver initialized");
 
     // On raspi, we can safety assume at least 960 MiB (ignoring VRAM reserved memory & MMIO)
     // So we can just grab the first 20MiB after the kernel to allocate our page tables, it should be plenty
@@ -84,6 +93,16 @@ fn early_init_uart() -> Pl011 {
 }
 
 #[panic_handler]
-fn panic(_: &PanicInfo) -> ! {
+fn panic(info: &PanicInfo) -> ! {
+    println!("");
+    println!("BOOTLOADER PANIC! Reason: ");
+    println!("{}", info);
     loop {}
+}
+
+#[macro_export]
+macro_rules! println {
+    ($($arg:tt)*) => {{
+        writeln!(UART0.get().unwrap().lock(), $($arg)*).unwrap();
+    }};
 }
