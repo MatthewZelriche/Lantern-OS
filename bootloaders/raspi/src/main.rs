@@ -5,8 +5,9 @@
 #![reexport_test_harness_main = "test_main"]
 
 use common::{
-    allocators::page_frame_allocator::freelist::FreelistPFA, memory::memory_size::MemorySize,
-    read_linker_var, util::linker_variables::__PG_SIZE,
+    allocators::page_frame_allocator::bump::BumpPFA,
+    read_linker_var,
+    util::linker_variables::{__KERNEL_END, __PG_SIZE},
 };
 use core::{arch::global_asm, fmt::Write, panic::PanicInfo};
 use device_drivers::{
@@ -14,12 +15,9 @@ use device_drivers::{
     uart0::{Pl011, PL011_PHYS_BASE},
 };
 
-use crate::{
-    device_drivers::mailbox::{
-        message::{SetClockRate, CLOCK_UART},
-        Mailbox, MAILBOX_PHYS_BASE,
-    },
-    device_tree::RaspiDeviceTree,
+use crate::device_drivers::mailbox::{
+    message::{SetClockRate, CLOCK_UART},
+    Mailbox, MAILBOX_PHYS_BASE,
 };
 
 mod device_drivers;
@@ -44,42 +42,19 @@ pub extern "C" fn bootloader_main(dtb_ptr: *const u8) -> ! {
     let mut uart = early_init_uart();
     writeln!(uart, "PL011 UART0 Device Driver initialized");
 
-    // Before we can enable virtual memory mapping, we need some way of dynamically allocating memory for
-    // the page tables. So our next order of business is to initialize a physical page frame allocator
-    // But wait! Without a memory map, we don't know what regions of memory are safe to add to the allocator.
-    // Why don't we have a memory map? Because a memory map requires dynamic allocation due to the variable
-    // number of entries.
-    // Thankfully, on the raspberry pi, we always know that the first frame is reserved, and that all
-    // subsequent frames up to 0x80000 (kernel start) are guarunteed to be free. With 4KiB pages, this gives
-    // us just under half a MiB to add to the page frame allocator.
-    // TODO: We can't support 1MiB pages on the raspi with this assumption
-    let mut frame_alloc = FreelistPFA::new();
+    // On raspi, we can safety assume at least 960 MiB (ignoring VRAM reserved memory & MMIO)
+    // So we can just grab the first 20MiB after the kernel to allocate our page tables, it should be plenty
+    let range_start = read_linker_var!(__KERNEL_END);
+    let range_end = range_start + 0x1400000;
+    let range_middle = (range_end + range_start) / 2;
+    // Create two bumpPFAs. The first will allocate pages to the kernel page table and exist for
+    // the static duration of the kernel's lifetime, so we will have to track its location.
+    // The second PFA will only be to identity map memory so we can jump to the higher half, and
+    // can be discarded after we jump.
     let page_size = read_linker_var!(__PG_SIZE);
-    for page in (0x1000_usize.next_multiple_of(page_size)..0x80000).step_by(page_size) {
-        unsafe {
-            // Safety: As above, on raspi we are guarunteed for all pages before 0x80000 except the first one
-            // be free of any important data
-            frame_alloc.free(page as *mut u8);
-        }
-    }
-    writeln!(
-        uart,
-        "Added {} page frames to the freelist",
-        frame_alloc.len()
-    );
-
-    // Parse the dtb for total physical memory ranges
-    let dt = RaspiDeviceTree::new(dtb_ptr).expect("Failed to read device tree! Error");
-    dt.for_each_memory(|addr, size| {
-        // For now we just print them to UART
-        writeln!(
-            uart,
-            "Found RAM block from raspi{} DTB: Addr {:#010X}, Size {:05} MiB",
-            RASPI_VERSION,
-            addr,
-            MemorySize::new(size as usize).as_mebibytes()
-        );
-    });
+    let mut saved_pfa =
+        unsafe { BumpPFA::new(range_start, range_middle - page_size, page_size).unwrap() };
+    let mut temp_pfa = unsafe { BumpPFA::new(range_middle, range_end, page_size).unwrap() };
 
     // TODO: Before we can proceed past this point, we need to set up the GLOBAL_WRITER.
     loop {}

@@ -45,4 +45,7 @@ SECTIONS {
     .kernel : AT(0x40000000) {
       *(.kernel)
     }
+
+    . = ALIGN(__PG_SIZE);
+    __KERNEL_END = .;
 }

@@ -1,3 +1,5 @@
+use super::PageFrameAllocator;
+
 pub struct FreelistEntry(Option<*mut FreelistEntry>);
 
 pub struct FreelistPFA {
@@ -13,7 +15,13 @@ impl FreelistPFA {
         }
     }
 
-    pub fn allocate(&mut self) -> *mut u8 {
+    pub fn len(&self) -> usize {
+        self.free_count
+    }
+}
+
+impl PageFrameAllocator for FreelistPFA {
+    fn allocate(&mut self) -> *mut u8 {
         // Get the next free page
         if let Some(old_head_ptr) = self.head {
             // Update the head with the next available frame in the freelist
@@ -27,7 +35,7 @@ impl FreelistPFA {
         }
     }
 
-    pub unsafe fn free(&mut self, frame: *mut u8) {
+    unsafe fn free(&mut self, frame: *mut u8) {
         self.free_count += 1;
 
         let new_head_ptr = frame as *mut FreelistEntry;
@@ -40,9 +48,5 @@ impl FreelistPFA {
         }
 
         self.head = Some(new_head_ptr);
-    }
-
-    pub fn len(&self) -> usize {
-        self.free_count
     }
 }

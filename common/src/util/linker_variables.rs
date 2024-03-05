@@ -1,5 +1,6 @@
 extern "C" {
     pub static __PG_SIZE: u8;
+    pub static __KERNEL_END: u8;
 }
 
 #[macro_export]
