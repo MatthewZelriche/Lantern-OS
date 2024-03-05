@@ -27,21 +27,15 @@ cargo build --bin raspi --target aarch64-unknown-none --features raspi4
 '''
 
 [tasks.raspi3-qemu]
+workspace = false
+dependencies = ["raspi3"]
 script = '''
 cargo run --bin raspi --target aarch64-unknown-none --features raspi3 -- raspi3
 '''
 
-[tasks.raspi3-test]
-script = '''
-cargo test --package raspi --target aarch64-unknown-none --features raspi3 -- raspi3
-'''
-
 [tasks.raspi4-qemu]
+workspace = false
+dependencies = ["raspi4"]
 script = '''
 cargo run --bin raspi --target aarch64-unknown-none --features raspi4 -- raspi4
-'''
-
-[tasks.raspi4-test]
-script = '''
-cargo test --package raspi --target aarch64-unknown-none --features raspi4 -- raspi4
 '''
