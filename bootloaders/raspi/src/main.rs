@@ -61,8 +61,7 @@ pub extern "C" fn bootloader_main(dtb_ptr: *const u8) -> ! {
     // The second PFA will only be to identity map memory so we can jump to the higher half, and
     // can be discarded after we jump.
     let page_size = read_linker_var!(__PG_SIZE);
-    let mut saved_pfa =
-        unsafe { BumpPFA::new(range_start, range_middle - page_size, page_size).unwrap() };
+    let mut saved_pfa = unsafe { BumpPFA::new(range_start, range_middle, page_size).unwrap() };
     let mut temp_pfa = unsafe { BumpPFA::new(range_middle, range_end, page_size).unwrap() };
     println!(
         "Initialized allocators for page tables in range {:#X} - {:#X}",
