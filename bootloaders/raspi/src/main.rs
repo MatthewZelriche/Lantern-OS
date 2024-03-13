@@ -19,13 +19,18 @@ use device_drivers::{
     uart0::{Pl011, PL011_PHYS_BASE},
 };
 
-use crate::device_drivers::mailbox::{
-    message::{SetClockRate, CLOCK_UART},
-    Mailbox, MAILBOX_PHYS_BASE,
+use crate::{
+    device_drivers::mailbox::{
+        message::{SetClockRate, CLOCK_UART},
+        Mailbox, MAILBOX_PHYS_BASE,
+    },
+    paging::page_table::PageTable,
 };
 
+mod arch_impl;
 mod device_drivers;
 mod device_tree;
+pub mod paging;
 #[cfg(test)]
 mod test;
 mod writer_mutexes;
@@ -67,6 +72,7 @@ pub extern "C" fn bootloader_main(dtb_ptr: *const u8) -> ! {
         "Initialized allocators for page tables in range {:#X} - {:#X}",
         range_start, range_end
     );
+    let identity_mapped_table = PageTable::new(&mut temp_pfa).unwrap();
 
     loop {}
 }
