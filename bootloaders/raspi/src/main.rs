@@ -8,12 +8,9 @@ use common::{
     allocators::page_frame_allocator::bump::BumpPFA,
     concurrency::single_threaded_lock::SingleThreadedLock,
     read_linker_var,
-    util::{
-        linker_variables::{__KERNEL_END, __PG_SIZE},
-        single_threaded_cell::SingleThreadedCell,
-    },
+    util::linker_variables::{__KERNEL_END, __PG_SIZE},
 };
-use core::{arch::global_asm, fmt::Write, panic::PanicInfo};
+use core::arch::global_asm;
 use device_drivers::{
     gpio::{Gpio, GPIO_PHYS_BASE},
     uart0::{Pl011, PL011_PHYS_BASE},
@@ -33,18 +30,12 @@ mod device_tree;
 pub mod paging;
 #[cfg(test)]
 mod test;
+mod util;
 mod writer_mutexes;
-
-#[cfg(feature = "raspi3")]
-static RASPI_VERSION: u8 = 3;
-#[cfg(feature = "raspi4")]
-static RASPI_VERSION: u8 = 4;
 
 global_asm!(include_str!("main.S"));
 #[link_section = ".kernel"]
 static KERNEL: &'static [u8] = include_bytes!("../../../out/kernel");
-
-static UART0: SingleThreadedCell<SingleThreadedLock<Pl011>> = SingleThreadedCell::new();
 
 #[no_mangle]
 pub extern "C" fn bootloader_main(dtb_ptr: *const u8) -> ! {
@@ -52,7 +43,7 @@ pub extern "C" fn bootloader_main(dtb_ptr: *const u8) -> ! {
     // meaningful output as early as possible.
     let uart = early_init_uart();
     unsafe {
-        UART0.set(SingleThreadedLock::new(uart));
+        util::print::UART0.set(SingleThreadedLock::new(uart));
     }
     println!("PL011 UART0 Device Driver initialized");
 
@@ -96,19 +87,4 @@ fn early_init_uart() -> Pl011 {
     }
 
     uart
-}
-
-#[panic_handler]
-fn panic(info: &PanicInfo) -> ! {
-    println!("");
-    println!("BOOTLOADER PANIC! Reason: ");
-    println!("{}", info);
-    loop {}
-}
-
-#[macro_export]
-macro_rules! println {
-    ($($arg:tt)*) => {{
-        writeln!(UART0.get().unwrap().lock(), $($arg)*).unwrap();
-    }};
 }
