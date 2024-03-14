@@ -66,11 +66,20 @@ pub extern "C" fn bootloader_main(dtb_ptr: *const u8) -> ! {
             .set(BumpPFA::new(kernel_end, kernel_end + 0x1400000, page_size).unwrap())
     }
     println!(
-        "Allocated free frames for bootloader in range {:#X} - {:#X}",
+        "Reserved free frames for bootloader's page frame allocator in range {:#X} - {:#X}",
         kernel_end,
         kernel_end + 0x1400000
     );
     let identity_mapped_table = PageTable::new().unwrap();
+
+    // Now that we have set up the temporary identity mapped page table, we mark the location of our
+    // global allocator, so we can later set this range as reclaimable by the kernel in the memory map
+    let reclaim_range = PAGE_FRAME_ALLOCATOR.allocated_range().unwrap();
+    println!(
+        "Allocated {} page(s) for temporary identity mapped page table",
+        (reclaim_range.1 - reclaim_range.0) / page_size
+    );
+    // WARNING! After this point, any allocations made cannot be deallocated!
 
     loop {}
 }

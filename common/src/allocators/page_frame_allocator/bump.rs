@@ -27,7 +27,7 @@ impl BumpPFA {
         })
     }
 
-    pub unsafe fn allocated_range(&self) -> (usize, usize) {
+    pub fn allocated_range(&self) -> (usize, usize) {
         (self.start_frame, self.next)
     }
 

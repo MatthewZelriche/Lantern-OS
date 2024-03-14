@@ -20,6 +20,10 @@ impl PageFrameAllocator {
     pub unsafe fn set(&self, inner: BumpPFA) {
         self.0.set(SingleThreadedLock::new(inner));
     }
+
+    pub fn allocated_range(&self) -> Option<(usize, usize)> {
+        self.0.get().map(|x| x.lock().allocated_range())
+    }
 }
 
 // Safety: We are using interior mutability for this global allocator, but we are ensuring that the bootloader
