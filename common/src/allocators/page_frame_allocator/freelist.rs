@@ -17,7 +17,7 @@ impl FreelistPFA {
         self.free_count
     }
 
-    fn allocate_page(&mut self) -> *mut u8 {
+    pub fn allocate_page(&mut self) -> *mut u8 {
         // Get the next free page
         if let Some(old_head_ptr) = self.head {
             // Update the head with the next available frame in the freelist
@@ -31,7 +31,7 @@ impl FreelistPFA {
         }
     }
 
-    unsafe fn free_page(&mut self, frame: *mut u8) {
+    pub unsafe fn free_page(&mut self, frame: *mut u8) {
         self.free_count += 1;
 
         let new_head_ptr = frame as *mut FreelistEntry;

@@ -31,7 +31,7 @@ impl BumpPFA {
         (self.start_frame, self.next)
     }
 
-    fn allocate_contiguous_pages(&mut self, num_pages: usize) -> Result<*mut [u8], AllocError> {
+    pub fn allocate_contiguous_pages(&mut self, num_pages: usize) -> Result<*mut [u8], AllocError> {
         if num_pages == 0 {
             return Err(AllocError);
         }

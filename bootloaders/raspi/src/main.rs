@@ -21,7 +21,7 @@ use crate::{
         message::{SetClockRate, CLOCK_UART},
         Mailbox, MAILBOX_PHYS_BASE,
     },
-    paging::page_table::PageTable,
+    util::global_allocator::PAGE_FRAME_ALLOCATOR,
 };
 
 mod arch_impl;
@@ -47,23 +47,26 @@ pub extern "C" fn bootloader_main(dtb_ptr: *const u8) -> ! {
     }
     println!("PL011 UART0 Device Driver initialized");
 
-    // On raspi, we can safety assume at least 960 MiB (ignoring VRAM reserved memory & MMIO)
-    // So we can just grab the first 20MiB after the kernel to allocate our page tables, it should be plenty
-    let range_start = read_linker_var!(__KERNEL_END);
-    let range_end = range_start + 0x1400000;
-    let range_middle = (range_end + range_start) / 2;
-    // Create two bumpPFAs. The first will allocate pages to the kernel page table and exist for
-    // the static duration of the kernel's lifetime, so we will have to track its location.
-    // The second PFA will only be to identity map memory so we can jump to the higher half, and
-    // can be discarded after we jump.
+    // Initialize the page frame allocator for the bootloader
+    // The Kernel will build and use its own page frame allocator. A BumpPFA was chosen for the bootloader,
+    // which means calls to deallocate on the global allocator will panic. Normally, this would mean we can't
+    // deallocate any pages we allocate in the bootloader. However, in this specific instance we will use a
+    // small trick to allocate the pages for a "temporary" page table first, then record the position of the
+    // BumpPFA after we have allocated this page table. This will tell us what region of the BumpPFA that we
+    // can add to the memory map as safely reclaimable by the kernel.
+    let kernel_end = read_linker_var!(__KERNEL_END);
     let page_size = read_linker_var!(__PG_SIZE);
-    let mut saved_pfa = unsafe { BumpPFA::new(range_start, range_middle, page_size).unwrap() };
-    let mut temp_pfa = unsafe { BumpPFA::new(range_middle, range_end, page_size).unwrap() };
+    unsafe {
+        // Safety: safe to call set(), because we are in a gaurunteed single threaded environment. Safe to
+        // construct the BumpPFA because we know that range of memory is unused on the raspi.
+        PAGE_FRAME_ALLOCATOR
+            .set(BumpPFA::new(kernel_end, kernel_end + 0x1400000, page_size).unwrap())
+    }
     println!(
-        "Initialized allocators for page tables in range {:#X} - {:#X}",
-        range_start, range_end
+        "Allocated free frames for bootloader in range {:#X} - {:#X}",
+        kernel_end,
+        kernel_end + 0x1400000
     );
-    let identity_mapped_table = PageTable::new(&mut temp_pfa).unwrap();
 
     loop {}
 }
