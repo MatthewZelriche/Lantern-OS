@@ -4,6 +4,8 @@
 #![test_runner(test::test_runner)]
 #![reexport_test_harness_main = "test_main"]
 
+extern crate alloc;
+
 use common::{
     allocators::page_frame_allocator::bump::BumpPFA,
     concurrency::single_threaded_lock::SingleThreadedLock,
@@ -21,6 +23,7 @@ use crate::{
         message::{SetClockRate, CLOCK_UART},
         Mailbox, MAILBOX_PHYS_BASE,
     },
+    paging::page_table::PageTable,
     util::global_allocator::PAGE_FRAME_ALLOCATOR,
 };
 
@@ -67,6 +70,7 @@ pub extern "C" fn bootloader_main(dtb_ptr: *const u8) -> ! {
         kernel_end,
         kernel_end + 0x1400000
     );
+    let identity_mapped_table = PageTable::new().unwrap();
 
     loop {}
 }

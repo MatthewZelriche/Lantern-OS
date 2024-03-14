@@ -11,6 +11,6 @@ impl Arch for ArchImpl {
     fn new_address_space<T: Allocator>(
         allocator: &mut T,
     ) -> Result<impl AddressSpace, AddressSpaceError> {
-        PageTable::new(allocator)
+        PageTable::new()
     }
 }

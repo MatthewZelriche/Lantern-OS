@@ -1,5 +1,3 @@
-extern crate alloc;
-
 use common::{
     allocators::page_frame_allocator::bump::BumpPFA,
     concurrency::single_threaded_lock::SingleThreadedLock,
