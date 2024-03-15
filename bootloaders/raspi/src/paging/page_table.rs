@@ -69,7 +69,7 @@ enum Descriptor {
 }
 
 pub struct PageTable<'a> {
-    lvl1_table: &'a mut [u8],
+    lvl1_table: &'a mut [Descriptor],
     address_translation: fn(usize) -> usize,
 }
 
@@ -85,9 +85,10 @@ impl<'a> PageTable<'a> {
         // SAFETY: Safe to alloc here because we are ensuring the correct size and alignment, and the memory
         // is owned exclusively by this page table. Safe to construct a slice since zeroed memory is a valid
         // bit representation for each table entry.
-        let lvl1_table = unsafe {
+        let lvl1_table: &mut [Descriptor] = unsafe {
             let ptr =
-                alloc_zeroed(Layout::from_size_align(4096, 4096).map_err(|_| AddressSpaceError)?);
+                alloc_zeroed(Layout::from_size_align(4096, 4096).map_err(|_| AddressSpaceError)?)
+                    as *mut Descriptor;
             from_raw_parts_mut(ptr, 4096)
         };
 
