@@ -67,9 +67,9 @@ register_bitfields!(
 );
 
 union Descriptor {
-    Table: ManuallyDrop<InMemoryRegister<u64, TABLE::Register>>,
-    Block: ManuallyDrop<InMemoryRegister<u64, BLOCK::Register>>,
-    PageEntry: ManuallyDrop<InMemoryRegister<u64, PAGEENTRY4KIB::Register>>,
+    table: ManuallyDrop<InMemoryRegister<u64, TABLE::Register>>,
+    block: ManuallyDrop<InMemoryRegister<u64, BLOCK::Register>>,
+    page_entry: ManuallyDrop<InMemoryRegister<u64, PAGEENTRY4KIB::Register>>,
 }
 
 pub struct PageTable<'a> {
@@ -106,10 +106,42 @@ impl<'a> PageTable<'a> {
     pub unsafe fn set_translator(&mut self, address_translation: fn(usize) -> usize) {
         self.address_translation = address_translation;
     }
+
+    pub fn map_1gib_page(&mut self, virt_start: usize, phys_start: usize) -> bool {
+        todo!()
+    }
+
+    pub fn map_2mib_page(&mut self, virt_start: usize, phys_start: usize) -> bool {
+        todo!()
+    }
+
+    pub fn map_4kib_page(&mut self, virt_start: usize, phys_start: usize) -> bool {
+        todo!()
+    }
+
+    pub fn unmap_1gib_page(&mut self, virt_start: usize, phys_start: usize) -> bool {
+        todo!()
+    }
+
+    pub fn unmap_2mib_page(&mut self, virt_start: usize, phys_start: usize) -> bool {
+        todo!()
+    }
+
+    pub fn unmap_4kib_page(&mut self, virt_start: usize, phys_start: usize) -> bool {
+        todo!()
+    }
 }
 
 impl<'a> AddressSpace for PageTable<'a> {
     fn set_active(&mut self) -> bool {
+        todo!()
+    }
+
+    fn map_range(&mut self, virt_start: usize, phys_start: usize, size: usize) -> bool {
+        todo!()
+    }
+
+    fn unmap_range(&mut self, virt_start: usize, phys_start: usize, size: usize) -> bool {
         todo!()
     }
 }
