@@ -1,10 +1,7 @@
-use crate::{
-    allocators::page_frame_allocator::Allocator, memory::address_space::AddressSpace,
-    util::error::AddressSpaceError,
-};
+use crate::{memory::address_space::AddressSpace, util::error::AddressSpaceError};
 
 pub trait Arch {
-    fn new_address_space<T: Allocator>(
-        allocator: &mut T,
+    unsafe fn new_address_space(
+        translation: fn(usize) -> usize,
     ) -> Result<impl AddressSpace, AddressSpaceError>;
 }

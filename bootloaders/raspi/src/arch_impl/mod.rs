@@ -1,16 +1,13 @@
-use common::{
-    allocators::page_frame_allocator::Allocator, arch::Arch, memory::address_space::AddressSpace,
-    util::error::AddressSpaceError,
-};
+use common::{arch::Arch, memory::address_space::AddressSpace, util::error::AddressSpaceError};
 
 use crate::paging::page_table::PageTable;
 
 pub struct ArchImpl {}
 
 impl Arch for ArchImpl {
-    fn new_address_space<T: Allocator>(
-        allocator: &mut T,
+    unsafe fn new_address_space(
+        translation: fn(usize) -> usize,
     ) -> Result<impl AddressSpace, AddressSpaceError> {
-        PageTable::new()
+        PageTable::new(translation)
     }
 }

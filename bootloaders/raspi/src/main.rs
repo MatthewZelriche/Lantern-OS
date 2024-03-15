@@ -70,7 +70,10 @@ pub extern "C" fn bootloader_main(dtb_ptr: *const u8) -> ! {
         kernel_end,
         kernel_end + 0x1400000
     );
-    let identity_mapped_table = PageTable::new().unwrap();
+
+    // Safety: Safe because the identity mapped table will only be used while memory is identity mapped,
+    // so our phys -> virt translator function is guarunteed to be correct
+    let identity_mapped_table = unsafe { PageTable::new(|phys| phys).unwrap() };
 
     // Now that we have set up the temporary identity mapped page table, we mark the location of our
     // global allocator, so we can later set this range as reclaimable by the kernel in the memory map

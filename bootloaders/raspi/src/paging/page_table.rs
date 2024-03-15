@@ -9,12 +9,14 @@ use common::{
 
 pub struct PageTable<'a> {
     lvl1_table: &'a mut [u8],
+    address_translation: fn(usize) -> usize,
 }
 
 // TODO: Currently only supports 4KiB page granule
 // TODO: Implement Drop
 impl<'a> PageTable<'a> {
-    pub fn new() -> Result<Self, AddressSpaceError> {
+    // Unsafe because bad things will happen if the address translation function is not correct
+    pub unsafe fn new(address_translation: fn(usize) -> usize) -> Result<Self, AddressSpaceError> {
         if read_linker_var!(__PG_SIZE) != 4096 {
             return Err(AddressSpaceError);
         }
@@ -28,7 +30,15 @@ impl<'a> PageTable<'a> {
             from_raw_parts_mut(ptr, 4096)
         };
 
-        Ok(Self { lvl1_table })
+        Ok(Self {
+            lvl1_table,
+            address_translation,
+        })
+    }
+
+    // Unsafe because bad things will happen if the address translation function is not correct
+    pub unsafe fn set_translator(&mut self, address_translation: fn(usize) -> usize) {
+        self.address_translation = address_translation;
     }
 }
 
