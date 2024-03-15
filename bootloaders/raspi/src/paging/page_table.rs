@@ -6,6 +6,67 @@ use common::{
     read_linker_var,
     util::{error::AddressSpaceError, linker_variables::__PG_SIZE},
 };
+use tock_registers::{register_bitfields, registers::InMemoryRegister};
+
+register_bitfields!(
+   u64,
+
+   TABLE [
+      VALID     OFFSET(0)  NUMBITS(1),
+      TABLE     OFFSET(1)  NUMBITS(1),  // Must always be one!
+      IGNORED   OFFSET(2)  NUMBITS(10),
+      NEXT_ADDR OFFSET(12) NUMBITS(36),
+      RES0      OFFSET(48) NUMBITS(4),
+      IGNORED1  OFFSET(52) NUMBITS(7),
+      PXNTABLE  OFFSET(59) NUMBITS(1),
+      XNTABLE   OFFSET(60) NUMBITS(1),
+      APTABLE   OFFSET(61) NUMBITS(2),
+      NSTABLE   OFFSET(63) NUMBITS(1),
+    ],
+
+    BLOCK [
+        VALID      OFFSET(0)  NUMBITS(1),
+        TABLE      OFFSET(1)  NUMBITS(1), // Must always be zero!
+        ATTR_IDX   OFFSET(2)  NUMBITS(2),
+        NS         OFFSET(5)  NUMBITS(1),
+        AP         OFFSET(6)  NUMBITS(2),
+        SH         OFFSET(8)  NUMBITS(2),
+        AF         OFFSET(10) NUMBITS(1),
+        NG         OFFSET(11) NUMBITS(1),
+        RES0       OFFSET(12) NUMBITS(18),
+        OUT_ADDR   OFFSET(30) NUMBITS(18),
+        RES0_1     OFFSET(48) NUMBITS(4),
+        CONTIGUOUS OFFSET(52) NUMBITS(1),
+        PXN        OFFSET(53) NUMBITS(1),
+        UXN        OFFSET(54) NUMBITS(1),
+        SOFTWARE   OFFSET(55) NUMBITS(4),
+        IGNORED    OFFSET(59) NUMBITS(5),
+      ],
+
+    PAGEENTRY4KIB [
+        VALID      OFFSET(0)  NUMBITS(1),
+        RES1       OFFSET(1)  NUMBITS(1), // Must always be one!
+        ATTR_IDX   OFFSET(2)  NUMBITS(2),
+        NS         OFFSET(5)  NUMBITS(1),
+        AP         OFFSET(6)  NUMBITS(2),
+        SH         OFFSET(8)  NUMBITS(2),
+        AF         OFFSET(10) NUMBITS(1),
+        NG         OFFSET(11) NUMBITS(1),
+        OUT_ADDR   OFFSET(12) NUMBITS(36),
+        RES0       OFFSET(48) NUMBITS(4),
+        CONTIGUOUS OFFSET(52) NUMBITS(1),
+        PXN        OFFSET(53) NUMBITS(1),
+        UXN        OFFSET(54) NUMBITS(1),
+        SOFTWARE   OFFSET(55) NUMBITS(4),
+        IGNORED    OFFSET(59) NUMBITS(5),
+    ],
+);
+
+enum Descriptor {
+    Table(InMemoryRegister<u64, TABLE::Register>),
+    Block(InMemoryRegister<u64, BLOCK::Register>),
+    PageEntry(InMemoryRegister<u64, PAGEENTRY4KIB::Register>),
+}
 
 pub struct PageTable<'a> {
     lvl1_table: &'a mut [u8],
