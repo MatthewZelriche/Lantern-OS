@@ -1,4 +1,8 @@
-use core::{alloc::Layout, slice::from_raw_parts_mut};
+use core::{
+    alloc::Layout,
+    mem::{size_of, ManuallyDrop},
+    slice::from_raw_parts_mut,
+};
 
 use alloc::alloc::alloc_zeroed;
 use common::{
@@ -62,10 +66,10 @@ register_bitfields!(
     ],
 );
 
-enum Descriptor {
-    Table(InMemoryRegister<u64, TABLE::Register>),
-    Block(InMemoryRegister<u64, BLOCK::Register>),
-    PageEntry(InMemoryRegister<u64, PAGEENTRY4KIB::Register>),
+union Descriptor {
+    Table: ManuallyDrop<InMemoryRegister<u64, TABLE::Register>>,
+    Block: ManuallyDrop<InMemoryRegister<u64, BLOCK::Register>>,
+    PageEntry: ManuallyDrop<InMemoryRegister<u64, PAGEENTRY4KIB::Register>>,
 }
 
 pub struct PageTable<'a> {
@@ -89,7 +93,7 @@ impl<'a> PageTable<'a> {
             let ptr =
                 alloc_zeroed(Layout::from_size_align(4096, 4096).map_err(|_| AddressSpaceError)?)
                     as *mut Descriptor;
-            from_raw_parts_mut(ptr, 4096)
+            from_raw_parts_mut(ptr, 4096 / size_of::<Descriptor>())
         };
 
         Ok(Self {
