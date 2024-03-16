@@ -48,7 +48,13 @@ impl BumpPFA {
 
 pub struct SingleThreadedBumpPFA(SingleThreadedLock<BumpPFA>);
 
-unsafe impl FrameAllocator for SingleThreadedBumpPFA {
+impl SingleThreadedBumpPFA {
+    pub fn new(inner: SingleThreadedLock<BumpPFA>) -> Self {
+        Self(inner)
+    }
+}
+
+unsafe impl<'a> FrameAllocator for &'a SingleThreadedBumpPFA {
     fn allocate_pages(&self, num_contiguous_pages: usize) -> Result<PhysAddr, AllocError> {
         self.0
             .lock()

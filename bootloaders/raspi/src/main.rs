@@ -4,16 +4,24 @@
 #![test_runner(test::test_runner)]
 #![reexport_test_harness_main = "test_main"]
 
-use common::concurrency::single_threaded_lock::SingleThreadedLock;
+use common::{
+    allocators::page_frame_allocator::bump::{BumpPFA, SingleThreadedBumpPFA},
+    concurrency::single_threaded_lock::SingleThreadedLock,
+    read_linker_var,
+    util::linker_variables::{__KERNEL_END, __PG_SIZE},
+};
 use core::arch::global_asm;
 use device_drivers::{
     gpio::{Gpio, GPIO_PHYS_BASE},
     uart0::{Pl011, PL011_PHYS_BASE},
 };
 
-use crate::device_drivers::mailbox::{
-    message::{SetClockRate, CLOCK_UART},
-    Mailbox, MAILBOX_PHYS_BASE,
+use crate::{
+    device_drivers::mailbox::{
+        message::{SetClockRate, CLOCK_UART},
+        Mailbox, MAILBOX_PHYS_BASE,
+    },
+    paging::page_table::PageTable,
 };
 
 mod arch_impl;
@@ -38,6 +46,32 @@ pub extern "C" fn bootloader_main(dtb_ptr: *const u8) -> ! {
         util::print::UART0.set(SingleThreadedLock::new(uart));
     }
     println!("PL011 UART0 Device Driver initialized");
+
+    // Create two bump allocators, one for temporary allocations that will be freed later, and one for
+    // permanent allocations that will never be freed (eg kernel page table)
+    let page_size = read_linker_var!(__PG_SIZE);
+    let kernel_end = read_linker_var!(__KERNEL_END);
+    let second_alloc_start = kernel_end + 0x500000;
+    let second_alloc_end = second_alloc_start + 0x500000;
+    // SAFETY: Memory range for both allocators is guarunteed to be free, and we are guarunteed to be
+    // in a single threaded environment during bootloading
+    let pfa = unsafe {
+        SingleThreadedBumpPFA::new(SingleThreadedLock::new(
+            BumpPFA::new(kernel_end, second_alloc_start, page_size).unwrap(),
+        ))
+    };
+    let temp_pfa = unsafe {
+        SingleThreadedBumpPFA::new(SingleThreadedLock::new(
+            BumpPFA::new(second_alloc_start, second_alloc_end, page_size).unwrap(),
+        ))
+    };
+    println!(
+        "Reserved range {:X} - {:X} for bootloader frame allocation",
+        kernel_end, second_alloc_end
+    );
+    // SAFETY: This page table will only be used to set up the higher half page tables, so our
+    // translation function is always guarunteed to be correct.
+    let temp_page_table = unsafe { PageTable::new(|phys| phys, &temp_pfa).unwrap() };
 
     loop {}
 }
