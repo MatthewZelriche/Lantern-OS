@@ -1,14 +1,20 @@
+use bitfield::BitRange;
 use common::{
     allocators::page_frame_allocator::FrameAllocator,
     memory::address_space::AddressSpace,
     read_linker_var,
     util::{error::AddressSpaceError, linker_variables::__PG_SIZE},
 };
-use core::{
-    mem::{size_of, ManuallyDrop},
-    slice::from_raw_parts_mut,
+use core::slice::from_raw_parts_mut;
+use tock_registers::{
+    interfaces::{ReadWriteable, Readable},
+    register_bitfields,
+    registers::InMemoryRegister,
 };
-use tock_registers::{register_bitfields, registers::InMemoryRegister};
+
+const SIZE_4KIB: u64 = 4096;
+const SIZE_2MIB: u64 = 2 * 1024 * 1024;
+const SIZE_1GIB: u64 = 1024 * 1024 * 1024;
 
 register_bitfields!(
    u64,
@@ -64,14 +70,12 @@ register_bitfields!(
     ],
 );
 
-union Descriptor {
-    table: ManuallyDrop<InMemoryRegister<u64, TABLE::Register>>,
-    block: ManuallyDrop<InMemoryRegister<u64, BLOCK::Register>>,
-    page_entry: ManuallyDrop<InMemoryRegister<u64, PAGEENTRY4KIB::Register>>,
-}
+type TableDescriptor = InMemoryRegister<u64, TABLE::Register>;
+type BlockDescriptor = InMemoryRegister<u64, BLOCK::Register>;
+type PageDescriptor = InMemoryRegister<u64, PAGEENTRY4KIB::Register>;
 
 pub struct PageTable<'a, A: FrameAllocator> {
-    lvl1_table: &'a mut [Descriptor],
+    lvl0_table: &'a mut [u64],
     address_translation: fn(usize) -> usize,
     frame_allocator: A,
 }
@@ -88,13 +92,13 @@ impl<'a, A: FrameAllocator> PageTable<'a, A> {
             return Err(AddressSpaceError);
         }
 
-        let lvl1_table_phys_ptr = frame_allocator
-            .allocate_zeroed_pages(1)
-            .map_err(|_| AddressSpaceError)? as *mut Descriptor;
-        let lvl1_table = from_raw_parts_mut(lvl1_table_phys_ptr, 4096 / size_of::<Descriptor>());
+        let lvl0_table_phys_ptr = frame_allocator
+            .allocate_zeroed_pages(1, address_translation)
+            .map_err(|_| AddressSpaceError)? as *mut u64;
+        let lvl0_table = from_raw_parts_mut(lvl0_table_phys_ptr, 4096 / 8);
 
         Ok(Self {
-            lvl1_table,
+            lvl0_table,
             address_translation,
             frame_allocator,
         })
@@ -105,27 +109,63 @@ impl<'a, A: FrameAllocator> PageTable<'a, A> {
         self.address_translation = address_translation;
     }
 
-    pub fn map_1gib_page(&mut self, virt_start: usize, phys_start: usize) -> bool {
+    pub fn map_1gib_page(&mut self, virt_start: u64, phys_start: u64) -> bool {
+        if virt_start % SIZE_1GIB != 0 && phys_start % SIZE_1GIB != 0 {
+            return false;
+        }
+
+        // Get the lvl0 descriptor entry
+        let lvl0_idx: u64 = virt_start.bit_range(47, 39);
+        let lvl0_descriptor = TableDescriptor::new(self.lvl0_table[lvl0_idx as usize]);
+        if !lvl0_descriptor.is_set(TABLE::VALID) {
+            let page_phys_addr = self
+                .frame_allocator
+                .allocate_zeroed_pages(1, self.address_translation)
+                .unwrap() as u64;
+            lvl0_descriptor.modify(TABLE::VALID::SET);
+            lvl0_descriptor.modify(TABLE::TABLE::SET);
+            lvl0_descriptor.modify(TABLE::NEXT_ADDR.val(page_phys_addr.bit_range(47, 12)));
+
+            // Store the modified lvl0 entry back into the table
+            self.lvl0_table[lvl0_idx as usize] = lvl0_descriptor.get();
+        }
+
+        let lvl1_table_ptr = (lvl0_descriptor.read(TABLE::NEXT_ADDR) << 12) as *mut u64;
+        // Safe because a valid lvl 0 descriptor guaruntees a valid lvl1 table
+        let lvl1_idx: u64 = virt_start.bit_range(38, 30);
+        let lvl1_table = unsafe { from_raw_parts_mut(lvl1_table_ptr, 4096 / 8) };
+        let lvl1_entry = BlockDescriptor::new(lvl1_table[lvl1_idx as usize]);
+        if lvl1_entry.is_set(BLOCK::VALID) {
+            panic!("Attempted to remap page in page table!");
+        }
+        lvl1_entry.modify(BLOCK::VALID::SET);
+        lvl1_entry.modify(BLOCK::TABLE::CLEAR);
+        // TODO: Handle attribs properly
+        lvl1_entry.modify(BLOCK::ATTR_IDX.val(0));
+        lvl1_entry.modify(BLOCK::OUT_ADDR.val(phys_start.bit_range(47, 30)));
+        // Store the lvl1 entry back into the table
+        lvl1_table[lvl0_idx as usize] = lvl1_entry.get();
+
+        true
+    }
+
+    pub fn map_2mib_page(&mut self, virt_start: u64, phys_start: u64) -> bool {
         todo!()
     }
 
-    pub fn map_2mib_page(&mut self, virt_start: usize, phys_start: usize) -> bool {
+    pub fn map_4kib_page(&mut self, virt_start: u64, phys_start: u64) -> bool {
         todo!()
     }
 
-    pub fn map_4kib_page(&mut self, virt_start: usize, phys_start: usize) -> bool {
+    pub fn unmap_1gib_page(&mut self, virt_start: u64, phys_start: u64) -> bool {
         todo!()
     }
 
-    pub fn unmap_1gib_page(&mut self, virt_start: usize, phys_start: usize) -> bool {
+    pub fn unmap_2mib_page(&mut self, virt_start: u64, phys_start: u64) -> bool {
         todo!()
     }
 
-    pub fn unmap_2mib_page(&mut self, virt_start: usize, phys_start: usize) -> bool {
-        todo!()
-    }
-
-    pub fn unmap_4kib_page(&mut self, virt_start: usize, phys_start: usize) -> bool {
+    pub fn unmap_4kib_page(&mut self, virt_start: u64, phys_start: u64) -> bool {
         todo!()
     }
 }

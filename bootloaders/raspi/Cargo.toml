@@ -9,6 +9,7 @@ raspi4 = []
 
 [dependencies]
 common = { path = "../../common" }
+bitfield = "=0.14.0"
 tock-registers = "0.9.0"
 
 [dependencies.fdt-rs]

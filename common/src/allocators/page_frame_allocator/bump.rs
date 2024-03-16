@@ -62,17 +62,26 @@ unsafe impl<'a> FrameAllocator for &'a SingleThreadedBumpPFA {
             .allocate_contiguous_pages(num_contiguous_pages)
     }
 
-    fn allocate_zeroed_pages(&self, num_contiguous_pages: usize) -> Result<PhysAddr, AllocError> {
+    fn allocate_zeroed_pages(
+        &self,
+        num_contiguous_pages: usize,
+        translation: fn(usize) -> usize,
+    ) -> Result<PhysAddr, AllocError> {
         let mut inner = self.0.lock();
-        let start = inner.allocate_contiguous_pages(num_contiguous_pages)?;
+        let start_phys = inner.allocate_contiguous_pages(num_contiguous_pages)?;
+        let start_virt = translation(start_phys);
 
-        let slice =
-            unsafe { from_raw_parts_mut(start as *mut u8, num_contiguous_pages * inner.page_size) };
+        let slice = unsafe {
+            from_raw_parts_mut(
+                start_virt as *mut u8,
+                num_contiguous_pages * inner.page_size,
+            )
+        };
 
         for byte in slice {
             *byte = 0;
         }
-        Ok(start)
+        Ok(start_phys)
     }
 
     unsafe fn deallocate_pages(&self, _: PhysAddr, _: usize) {

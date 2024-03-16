@@ -5,6 +5,10 @@ pub mod freelist;
 
 pub unsafe trait FrameAllocator {
     fn allocate_pages(&self, num_contiguous_pages: usize) -> Result<PhysAddr, AllocError>;
-    fn allocate_zeroed_pages(&self, num_contiguous_pages: usize) -> Result<PhysAddr, AllocError>;
+    fn allocate_zeroed_pages(
+        &self,
+        num_contiguous_pages: usize,
+        translation: fn(usize) -> usize,
+    ) -> Result<PhysAddr, AllocError>;
     unsafe fn deallocate_pages(&self, addr: PhysAddr, num_contiguous_pages: usize);
 }
