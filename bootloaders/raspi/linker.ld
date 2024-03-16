@@ -39,7 +39,7 @@ SECTIONS {
    /* Put our stack on the next page after the kernel */
    . = ALIGN(__PG_SIZE);
    __STACK_END = .;
-   . += __PG_SIZE;
+   . += __PG_SIZE * 2;
     __STACK_START = .;
 
     . = ALIGN(__PG_SIZE);
