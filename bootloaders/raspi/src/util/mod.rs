@@ -1,7 +1,6 @@
 use crate::println;
 use core::panic::PanicInfo;
 
-pub mod global_allocator;
 pub mod print;
 
 #[cfg(feature = "raspi3")]

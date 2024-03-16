@@ -1,10 +1,9 @@
-use crate::util::error::AllocError;
-use core::{alloc::Layout, ptr::NonNull};
+use crate::{memory::PhysAddr, util::error::AllocError};
 
 pub mod bump;
 pub mod freelist;
 
-pub trait Allocator {
-    fn allocate(&mut self, layout: Layout) -> Result<NonNull<[u8]>, AllocError>;
-    unsafe fn deallocate(&mut self, ptr: NonNull<u8>, layout: Layout);
+pub unsafe trait FrameAllocator {
+    fn allocate_pages(&self, num_contiguous_pages: usize) -> Result<PhysAddr, AllocError>;
+    unsafe fn deallocate_pages(&self, addr: PhysAddr, num_contiguous_pages: usize);
 }

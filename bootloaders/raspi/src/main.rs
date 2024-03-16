@@ -4,27 +4,16 @@
 #![test_runner(test::test_runner)]
 #![reexport_test_harness_main = "test_main"]
 
-extern crate alloc;
-
-use common::{
-    allocators::page_frame_allocator::bump::BumpPFA,
-    concurrency::single_threaded_lock::SingleThreadedLock,
-    read_linker_var,
-    util::linker_variables::{__KERNEL_END, __PG_SIZE},
-};
+use common::concurrency::single_threaded_lock::SingleThreadedLock;
 use core::arch::global_asm;
 use device_drivers::{
     gpio::{Gpio, GPIO_PHYS_BASE},
     uart0::{Pl011, PL011_PHYS_BASE},
 };
 
-use crate::{
-    device_drivers::mailbox::{
-        message::{SetClockRate, CLOCK_UART},
-        Mailbox, MAILBOX_PHYS_BASE,
-    },
-    paging::page_table::PageTable,
-    util::global_allocator::PAGE_FRAME_ALLOCATOR,
+use crate::device_drivers::mailbox::{
+    message::{SetClockRate, CLOCK_UART},
+    Mailbox, MAILBOX_PHYS_BASE,
 };
 
 mod arch_impl;
@@ -49,40 +38,6 @@ pub extern "C" fn bootloader_main(dtb_ptr: *const u8) -> ! {
         util::print::UART0.set(SingleThreadedLock::new(uart));
     }
     println!("PL011 UART0 Device Driver initialized");
-
-    // Initialize the page frame allocator for the bootloader
-    // The Kernel will build and use its own page frame allocator. A BumpPFA was chosen for the bootloader,
-    // which means calls to deallocate on the global allocator will panic. Normally, this would mean we can't
-    // deallocate any pages we allocate in the bootloader. However, in this specific instance we will use a
-    // small trick to allocate the pages for a "temporary" page table first, then record the position of the
-    // BumpPFA after we have allocated this page table. This will tell us what region of the BumpPFA that we
-    // can add to the memory map as safely reclaimable by the kernel.
-    let kernel_end = read_linker_var!(__KERNEL_END);
-    let page_size = read_linker_var!(__PG_SIZE);
-    unsafe {
-        // Safety: safe to call set(), because we are in a gaurunteed single threaded environment. Safe to
-        // construct the BumpPFA because we know that range of memory is unused on the raspi.
-        PAGE_FRAME_ALLOCATOR
-            .set(BumpPFA::new(kernel_end, kernel_end + 0x1400000, page_size).unwrap())
-    }
-    println!(
-        "Reserved free frames for bootloader's page frame allocator in range {:#X} - {:#X}",
-        kernel_end,
-        kernel_end + 0x1400000
-    );
-
-    // Safety: Safe because the identity mapped table will only be used while memory is identity mapped,
-    // so our phys -> virt translator function is guarunteed to be correct
-    let identity_mapped_table = unsafe { PageTable::new(|phys| phys).unwrap() };
-
-    // Now that we have set up the temporary identity mapped page table, we mark the location of our
-    // global allocator, so we can later set this range as reclaimable by the kernel in the memory map
-    let reclaim_range = PAGE_FRAME_ALLOCATOR.allocated_range().unwrap();
-    println!(
-        "Allocated {} page(s) for temporary identity mapped page table",
-        (reclaim_range.1 - reclaim_range.0) / page_size
-    );
-    // WARNING! After this point, any allocations made cannot be deallocated!
 
     loop {}
 }

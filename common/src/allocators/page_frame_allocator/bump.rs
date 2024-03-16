@@ -1,6 +1,8 @@
-use super::Allocator;
-use crate::util::error::AllocError;
-use core::ptr::{slice_from_raw_parts_mut, NonNull};
+use super::FrameAllocator;
+use crate::{
+    concurrency::single_threaded_lock::SingleThreadedLock, memory::PhysAddr,
+    util::error::AllocError,
+};
 
 pub struct BumpPFA {
     start_frame: usize,
@@ -31,7 +33,7 @@ impl BumpPFA {
         (self.start_frame, self.next)
     }
 
-    pub fn allocate_contiguous_pages(&mut self, num_pages: usize) -> Result<*mut [u8], AllocError> {
+    pub fn allocate_contiguous_pages(&mut self, num_pages: usize) -> Result<PhysAddr, AllocError> {
         if num_pages == 0 {
             return Err(AllocError);
         }
@@ -40,27 +42,20 @@ impl BumpPFA {
         }
         let page = self.next;
         self.next += self.page_size * num_pages;
-        Ok(slice_from_raw_parts_mut(
-            page as *mut u8,
-            self.page_size * num_pages,
-        ))
+        Ok(page)
     }
 }
 
-impl Allocator for BumpPFA {
-    fn allocate(
-        &mut self,
-        layout: core::alloc::Layout,
-    ) -> Result<core::ptr::NonNull<[u8]>, AllocError> {
-        if layout.align() > self.page_size {
-            return Err(AllocError);
-        }
+pub struct SingleThreadedBumpPFA(SingleThreadedLock<BumpPFA>);
 
-        let num_pages = layout.size().div_ceil(self.page_size);
-        NonNull::new(self.allocate_contiguous_pages(num_pages)?).ok_or(AllocError)
+unsafe impl FrameAllocator for SingleThreadedBumpPFA {
+    fn allocate_pages(&self, num_contiguous_pages: usize) -> Result<PhysAddr, AllocError> {
+        self.0
+            .lock()
+            .allocate_contiguous_pages(num_contiguous_pages)
     }
 
-    unsafe fn deallocate(&mut self, _: core::ptr::NonNull<u8>, _: core::alloc::Layout) {
-        panic!("Attempted to free an individual bump-allocated page!");
+    unsafe fn deallocate_pages(&self, _: PhysAddr, _: usize) {
+        panic!("Attempted to free bump-allocated pages!");
     }
 }

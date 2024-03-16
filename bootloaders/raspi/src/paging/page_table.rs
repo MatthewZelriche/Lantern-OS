@@ -1,14 +1,12 @@
-use core::{
-    alloc::Layout,
-    mem::{size_of, ManuallyDrop},
-    slice::from_raw_parts_mut,
-};
-
-use alloc::alloc::alloc_zeroed;
 use common::{
+    allocators::page_frame_allocator::FrameAllocator,
     memory::address_space::AddressSpace,
     read_linker_var,
     util::{error::AddressSpaceError, linker_variables::__PG_SIZE},
+};
+use core::{
+    mem::{size_of, ManuallyDrop},
+    slice::from_raw_parts_mut,
 };
 use tock_registers::{register_bitfields, registers::InMemoryRegister};
 
@@ -72,33 +70,33 @@ union Descriptor {
     page_entry: ManuallyDrop<InMemoryRegister<u64, PAGEENTRY4KIB::Register>>,
 }
 
-pub struct PageTable<'a> {
+pub struct PageTable<'a, A: FrameAllocator> {
     lvl1_table: &'a mut [Descriptor],
     address_translation: fn(usize) -> usize,
+    frame_allocator: A,
 }
 
 // TODO: Currently only supports 4KiB page granule
 // TODO: Implement Drop
-impl<'a> PageTable<'a> {
+impl<'a, A: FrameAllocator> PageTable<'a, A> {
     // Unsafe because bad things will happen if the address translation function is not correct
-    pub unsafe fn new(address_translation: fn(usize) -> usize) -> Result<Self, AddressSpaceError> {
+    pub unsafe fn new(
+        address_translation: fn(usize) -> usize,
+        frame_allocator: A,
+    ) -> Result<Self, AddressSpaceError> {
         if read_linker_var!(__PG_SIZE) != 4096 {
             return Err(AddressSpaceError);
         }
 
-        // SAFETY: Safe to alloc here because we are ensuring the correct size and alignment, and the memory
-        // is owned exclusively by this page table. Safe to construct a slice since zeroed memory is a valid
-        // bit representation for each table entry.
-        let lvl1_table: &mut [Descriptor] = unsafe {
-            let ptr =
-                alloc_zeroed(Layout::from_size_align(4096, 4096).map_err(|_| AddressSpaceError)?)
-                    as *mut Descriptor;
-            from_raw_parts_mut(ptr, 4096 / size_of::<Descriptor>())
-        };
+        let lvl1_table_phys_ptr = frame_allocator
+            .allocate_pages(1)
+            .map_err(|_| AddressSpaceError)? as *mut Descriptor;
+        let lvl1_table = from_raw_parts_mut(lvl1_table_phys_ptr, 4096 / size_of::<Descriptor>());
 
         Ok(Self {
             lvl1_table,
             address_translation,
+            frame_allocator,
         })
     }
 
@@ -132,7 +130,7 @@ impl<'a> PageTable<'a> {
     }
 }
 
-impl<'a> AddressSpace for PageTable<'a> {
+impl<'a, A: FrameAllocator> AddressSpace for PageTable<'a, A> {
     fn set_active(&mut self) -> bool {
         todo!()
     }
