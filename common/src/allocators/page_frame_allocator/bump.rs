@@ -3,6 +3,7 @@ use crate::{
     concurrency::single_threaded_lock::SingleThreadedLock, memory::PhysAddr,
     util::error::AllocError,
 };
+use core::slice::from_raw_parts_mut;
 
 pub struct BumpPFA {
     start_frame: usize,
@@ -59,6 +60,19 @@ unsafe impl<'a> FrameAllocator for &'a SingleThreadedBumpPFA {
         self.0
             .lock()
             .allocate_contiguous_pages(num_contiguous_pages)
+    }
+
+    fn allocate_zeroed_pages(&self, num_contiguous_pages: usize) -> Result<PhysAddr, AllocError> {
+        let mut inner = self.0.lock();
+        let start = inner.allocate_contiguous_pages(num_contiguous_pages)?;
+
+        let slice =
+            unsafe { from_raw_parts_mut(start as *mut u8, num_contiguous_pages * inner.page_size) };
+
+        for byte in slice {
+            *byte = 0;
+        }
+        Ok(start)
     }
 
     unsafe fn deallocate_pages(&self, _: PhysAddr, _: usize) {

@@ -89,7 +89,7 @@ impl<'a, A: FrameAllocator> PageTable<'a, A> {
         }
 
         let lvl1_table_phys_ptr = frame_allocator
-            .allocate_pages(1)
+            .allocate_zeroed_pages(1)
             .map_err(|_| AddressSpaceError)? as *mut Descriptor;
         let lvl1_table = from_raw_parts_mut(lvl1_table_phys_ptr, 4096 / size_of::<Descriptor>());
 
