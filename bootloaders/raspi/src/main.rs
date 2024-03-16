@@ -7,6 +7,7 @@
 use common::{
     allocators::page_frame_allocator::bump::{BumpPFA, SingleThreadedBumpPFA},
     concurrency::single_threaded_lock::SingleThreadedLock,
+    memory::address_space::MemoryAttributes,
     read_linker_var,
     util::linker_variables::{__KERNEL_END, __PG_SIZE},
 };
@@ -71,7 +72,8 @@ pub extern "C" fn bootloader_main(dtb_ptr: *const u8) -> ! {
     );
     // SAFETY: This page table will only be used to set up the higher half page tables, so our
     // translation function is always guarunteed to be correct.
-    let temp_page_table = unsafe { PageTable::new(|phys| phys, &temp_pfa).unwrap() };
+    let mut temp_page_table = unsafe { PageTable::new(|phys| phys, &temp_pfa).unwrap() };
+    temp_page_table.map_1gib_page(0, 0, MemoryAttributes::DeviceStronglyOrdered);
 
     loop {}
 }

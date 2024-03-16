@@ -1,7 +1,10 @@
 use bitfield::BitRange;
 use common::{
     allocators::page_frame_allocator::FrameAllocator,
-    memory::address_space::AddressSpace,
+    memory::{
+        address_space::{AddressSpace, MemoryAttributes},
+        PhysAddr,
+    },
     read_linker_var,
     util::{error::AddressSpaceError, linker_variables::__PG_SIZE},
 };
@@ -11,6 +14,8 @@ use tock_registers::{
     register_bitfields,
     registers::InMemoryRegister,
 };
+
+use super::memory_attribute::translate_memory_attrib;
 
 const SIZE_4KIB: u64 = 4096;
 const SIZE_2MIB: u64 = 2 * 1024 * 1024;
@@ -109,7 +114,12 @@ impl<'a, A: FrameAllocator> PageTable<'a, A> {
         self.address_translation = address_translation;
     }
 
-    pub fn map_1gib_page(&mut self, virt_start: u64, phys_start: u64) -> bool {
+    pub fn map_1gib_page(
+        &mut self,
+        virt_start: u64,
+        phys_start: u64,
+        attr: MemoryAttributes,
+    ) -> bool {
         if virt_start % SIZE_1GIB != 0 && phys_start % SIZE_1GIB != 0 {
             return false;
         }
@@ -140,8 +150,7 @@ impl<'a, A: FrameAllocator> PageTable<'a, A> {
         }
         lvl1_entry.modify(BLOCK::VALID::SET);
         lvl1_entry.modify(BLOCK::TABLE::CLEAR);
-        // TODO: Handle attribs properly
-        lvl1_entry.modify(BLOCK::ATTR_IDX.val(0));
+        lvl1_entry.modify(BLOCK::ATTR_IDX.val(translate_memory_attrib(attr) as u64));
         lvl1_entry.modify(BLOCK::OUT_ADDR.val(phys_start.bit_range(47, 30)));
         // Store the lvl1 entry back into the table
         lvl1_table[lvl0_idx as usize] = lvl1_entry.get();
@@ -175,11 +184,21 @@ impl<'a, A: FrameAllocator> AddressSpace for PageTable<'a, A> {
         todo!()
     }
 
-    fn map_range(&mut self, virt_start: usize, phys_start: usize, size: usize) -> bool {
+    fn map_range(
+        &mut self,
+        virt_start: usize,
+        phys_start: usize,
+        size: usize,
+        attr: MemoryAttributes,
+    ) -> bool {
         todo!()
     }
 
     fn unmap_range(&mut self, virt_start: usize, phys_start: usize, size: usize) -> bool {
+        todo!()
+    }
+
+    fn translate(&mut self, virt_addr: usize) -> PhysAddr {
         todo!()
     }
 }
