@@ -157,7 +157,7 @@ impl<'a, A: FrameAllocator> PageTable<'a, A> {
             return false;
         }
 
-        // Get the lvl0 descriptor entry
+        // Get (or optionally create) the lvl0 descriptor entry
         let lvl0_idx: u64 = virt_start.bit_range(47, 39);
         let lvl0_descriptor = TableDescriptor::new(self.lvl0_table[lvl0_idx as usize]);
         if !lvl0_descriptor.is_set(TABLE::VALID) {
@@ -178,7 +178,7 @@ impl<'a, A: FrameAllocator> PageTable<'a, A> {
         let lvl1_idx: u64 = virt_start.bit_range(38, 30);
         let lvl1_table = unsafe { from_raw_parts_mut(lvl1_table_ptr, 4096 / 8) };
         let lvl1_entry = BlockDescriptor::new(lvl1_table[lvl1_idx as usize]);
-        if lvl1_entry.is_set(BLOCK::VALID) {
+        if lvl1_entry.is_set(BLOCK::VALID) || lvl1_entry.is_set(BLOCK::TABLE) {
             panic!("Attempted to remap page in page table!");
         }
         lvl1_entry.modify(BLOCK::VALID::SET);
@@ -196,8 +196,90 @@ impl<'a, A: FrameAllocator> PageTable<'a, A> {
         todo!()
     }
 
-    pub fn map_4kib_page(&mut self, virt_start: u64, phys_start: u64) -> bool {
-        todo!()
+    pub fn map_4kib_page(
+        &mut self,
+        virt_start: u64,
+        phys_start: u64,
+        attr: MemoryAttributes,
+    ) -> bool {
+        if virt_start % SIZE_4KIB != 0 && phys_start % SIZE_4KIB != 0 {
+            return false;
+        }
+
+        // Get (or optionally create) the lvl0 descriptor entry
+        let lvl0_idx: u64 = virt_start.bit_range(47, 39);
+        let lvl0_descriptor = TableDescriptor::new(self.lvl0_table[lvl0_idx as usize]);
+        if !lvl0_descriptor.is_set(TABLE::VALID) {
+            let page_phys_addr = self
+                .frame_allocator
+                .allocate_zeroed_pages(1, self.address_translation)
+                .unwrap() as u64;
+            lvl0_descriptor.modify(TABLE::VALID::SET);
+            lvl0_descriptor.modify(TABLE::TABLE::SET);
+            lvl0_descriptor.modify(TABLE::NEXT_ADDR.val(page_phys_addr.bit_range(47, 12)));
+
+            // Store the modified lvl0 entry back into the table
+            self.lvl0_table[lvl0_idx as usize] = lvl0_descriptor.get();
+        }
+
+        // Get (or optionally create) the lvl1 descriptor entry
+        let lvl1_table_ptr = (lvl0_descriptor.read(TABLE::NEXT_ADDR) << 12) as *mut u64;
+        // Safe because a valid lvl 0 descriptor guaruntees a valid lvl1 table
+        let lvl1_idx: u64 = virt_start.bit_range(38, 30);
+        let lvl1_table = unsafe { from_raw_parts_mut(lvl1_table_ptr, 4096 / 8) };
+        let lvl1_entry = TableDescriptor::new(lvl1_table[lvl1_idx as usize]);
+        if !lvl1_entry.is_set(TABLE::VALID) {
+            let page_phys_addr = self
+                .frame_allocator
+                .allocate_zeroed_pages(1, self.address_translation)
+                .unwrap() as u64;
+            lvl1_entry.modify(TABLE::VALID::SET);
+            lvl1_entry.modify(TABLE::TABLE::SET);
+            lvl1_entry.modify(TABLE::NEXT_ADDR.val(page_phys_addr.bit_range(47, 12)));
+
+            // Store the modified lvl1 entry back into the table
+            lvl1_table[lvl1_idx as usize] = lvl1_entry.get();
+        } else if !lvl1_entry.is_set(TABLE::TABLE) {
+            panic!("Attempted to remap page in page table!");
+        }
+
+        // Get (or optionally create) the lvl2 descriptor entry
+        let lvl2_table_ptr = (lvl1_entry.read(TABLE::NEXT_ADDR) << 12) as *mut u64;
+        let lvl2_idx: u64 = virt_start.bit_range(29, 21);
+        let lvl2_table = unsafe { from_raw_parts_mut(lvl2_table_ptr, 4096 / 8) };
+        let lvl2_entry = TableDescriptor::new(lvl2_table[lvl2_idx as usize]);
+        if !lvl2_entry.is_set(TABLE::VALID) {
+            let page_phys_addr = self
+                .frame_allocator
+                .allocate_zeroed_pages(1, self.address_translation)
+                .unwrap() as u64;
+            lvl2_entry.modify(TABLE::VALID::SET);
+            lvl2_entry.modify(TABLE::TABLE::SET);
+            lvl2_entry.modify(TABLE::NEXT_ADDR.val(page_phys_addr.bit_range(47, 12)));
+
+            // Store the modified lvl2 entry back into the table
+            lvl2_table[lvl2_idx as usize] = lvl2_entry.get();
+        } else if !lvl2_entry.is_set(TABLE::TABLE) {
+            panic!("Attempted to remap page in page table!");
+        }
+
+        // Create the lvl3 descriptor entry
+        let lvl3_table_ptr = (lvl2_entry.read(TABLE::NEXT_ADDR) << 12) as *mut u64;
+        let lvl3_idx: u64 = virt_start.bit_range(20, 12);
+        let lvl3_table = unsafe { from_raw_parts_mut(lvl3_table_ptr, 4096 / 8) };
+        let lvl3_entry = PageDescriptor::new(lvl3_table[lvl3_idx as usize]);
+        if lvl3_entry.is_set(PAGEENTRY4KIB::VALID) {
+            panic!("Attempted to remap page in page table!");
+        }
+        lvl3_entry.modify(PAGEENTRY4KIB::VALID::SET);
+        lvl3_entry.modify(PAGEENTRY4KIB::RES1::SET);
+        lvl3_entry.modify(PAGEENTRY4KIB::AF::SET);
+        lvl3_entry.modify(PAGEENTRY4KIB::OUT_ADDR.val(phys_start.bit_range(47, 12)));
+        lvl3_entry.modify(PAGEENTRY4KIB::ATTR_IDX.val(translate_memory_attrib(attr) as u64));
+        // Store the new created entry back into the table
+        lvl3_table[lvl3_idx as usize] = lvl3_entry.get();
+
+        true
     }
 
     pub fn unmap_1gib_page(&mut self, virt_start: u64, phys_start: u64) -> bool {
