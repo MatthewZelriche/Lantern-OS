@@ -13,3 +13,11 @@ macro_rules! println {
         writeln!(crate::util::print::UART0.get().unwrap().lock(), $($arg)*).unwrap();
     }};
 }
+
+#[macro_export]
+macro_rules! print {
+    ($($arg:tt)*) => {{
+        use core::fmt::Write;
+        write!(crate::util::print::UART0.get().unwrap().lock(), $($arg)*).unwrap();
+    }};
+}

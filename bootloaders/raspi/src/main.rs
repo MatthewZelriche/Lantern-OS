@@ -22,7 +22,7 @@ use crate::{
         message::{SetClockRate, CLOCK_UART},
         Mailbox, MAILBOX_PHYS_BASE,
     },
-    paging::page_table::PageTable,
+    paging::{mmu::enable_mmu, page_table::PageTable},
 };
 
 mod arch_impl;
@@ -70,10 +70,25 @@ pub extern "C" fn bootloader_main(dtb_ptr: *const u8) -> ! {
         "Reserved range {:X} - {:X} for bootloader frame allocation",
         kernel_end, second_alloc_end
     );
+
+    // Temporarily identity map bottom 8GiB of address space
+    // Regardless of how much RAM the raspi actually has (max 8GiB), this will ensure our identity map
+    // acts pretty much the same as before the MMU was enabled.
+    println!("Temporarily identity mapping first 4 GiB of address space");
     // SAFETY: This page table will only be used to set up the higher half page tables, so our
     // translation function is always guarunteed to be correct.
     let mut temp_page_table = unsafe { PageTable::new(|phys| phys, &temp_pfa).unwrap() };
-    temp_page_table.map_1gib_page(0, 0, MemoryAttributes::DeviceStronglyOrdered);
+    for addr in (0..0x200000000).step_by(1024 * 1024 * 1024) {
+        temp_page_table.map_1gib_page(addr, addr, MemoryAttributes::DeviceStronglyOrdered);
+    }
+    // Construct a blank higher half page table for ttbr1
+    let mut ttbr1 = unsafe { PageTable::new(|phys| phys, &pfa).unwrap() };
+
+    print!("Enabling MMU with identity mapping...");
+    unsafe {
+        enable_mmu(&mut temp_page_table, &mut ttbr1);
+    }
+    println!("Success");
 
     loop {}
 }

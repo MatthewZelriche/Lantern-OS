@@ -11,6 +11,7 @@ raspi4 = []
 common = { path = "../../common" }
 bitfield = "=0.14.0"
 tock-registers = "0.9.0"
+aarch64-cpu = "=9.4.0"
 
 [dependencies.fdt-rs]
 version = "0.4.5"

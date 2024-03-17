@@ -87,6 +87,8 @@ pub struct PageTable<'a, A: FrameAllocator> {
 
 // TODO: Currently only supports 4KiB page granule
 // TODO: Implement Drop
+// TODO: Currently we always set access flag to 1 when mapping. In reality, we will want to change
+// this behavior if/when we implement paging to disk
 impl<'a, A: FrameAllocator> PageTable<'a, A> {
     // Unsafe because bad things will happen if the address translation function is not correct
     pub unsafe fn new(
@@ -107,6 +109,10 @@ impl<'a, A: FrameAllocator> PageTable<'a, A> {
             address_translation,
             frame_allocator,
         })
+    }
+
+    pub fn as_raw(&mut self) -> *mut u64 {
+        self.lvl0_table.as_mut_ptr()
     }
 
     // Unsafe because bad things will happen if the address translation function is not correct
@@ -179,6 +185,7 @@ impl<'a, A: FrameAllocator> PageTable<'a, A> {
         lvl1_entry.modify(BLOCK::TABLE::CLEAR);
         lvl1_entry.modify(BLOCK::ATTR_IDX.val(translate_memory_attrib(attr) as u64));
         lvl1_entry.modify(BLOCK::OUT_ADDR.val(phys_start.bit_range(47, 30)));
+        lvl1_entry.modify(BLOCK::AF::SET);
         // Store the lvl1 entry back into the table
         lvl1_table[lvl1_idx as usize] = lvl1_entry.get();
 
