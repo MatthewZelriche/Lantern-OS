@@ -9,7 +9,9 @@ use common::{
     concurrency::single_threaded_lock::SingleThreadedLock,
     memory::address_space::MemoryAttributes,
     read_linker_var,
-    util::linker_variables::{__KERNEL_END, __PG_SIZE},
+    util::linker_variables::{
+        __KERNEL_PHYS_END, __KERNEL_PHYS_START, __KERNEL_VIRT_START, __PG_SIZE,
+    },
 };
 use core::arch::global_asm;
 use device_drivers::{
@@ -35,8 +37,7 @@ mod util;
 mod writer_mutexes;
 
 global_asm!(include_str!("main.S"));
-#[link_section = ".kernel"]
-static KERNEL: &'static [u8] = include_bytes!("../../../out/kernel");
+global_asm!(include_str!("kernel.S"));
 
 #[no_mangle]
 pub extern "C" fn bootloader_main(dtb_ptr: *const u8) -> ! {
@@ -51,7 +52,7 @@ pub extern "C" fn bootloader_main(dtb_ptr: *const u8) -> ! {
     // Create two bump allocators, one for temporary allocations that will be freed later, and one for
     // permanent allocations that will never be freed (eg kernel page table)
     let page_size = read_linker_var!(__PG_SIZE);
-    let kernel_end = read_linker_var!(__KERNEL_END);
+    let kernel_end = read_linker_var!(__KERNEL_PHYS_END);
     let second_alloc_start = kernel_end + 0x500000;
     let second_alloc_end = second_alloc_start + 0x500000;
     // SAFETY: Memory range for both allocators is guarunteed to be free, and we are guarunteed to be
@@ -81,8 +82,28 @@ pub extern "C" fn bootloader_main(dtb_ptr: *const u8) -> ! {
     for addr in (0..0x200000000).step_by(1024 * 1024 * 1024) {
         temp_page_table.map_1gib_page(addr, addr, MemoryAttributes::DeviceStronglyOrdered);
     }
-    // Construct a blank higher half page table for ttbr1
+    // Construct a higher half page table for ttbr1
     let mut ttbr1 = unsafe { PageTable::new(|phys| phys, &pfa).unwrap() };
+    // Map the kernel to the canonical higher half location
+    let kernel_phys_start = read_linker_var!(__KERNEL_PHYS_START);
+    let kernel_phys_end = read_linker_var!(__KERNEL_PHYS_END);
+    if kernel_phys_start % page_size != 0 || kernel_phys_end % page_size != 0 {
+        panic!("Kernel start and end must be divisible by page size");
+    } else if kernel_phys_start == kernel_phys_end {
+        panic!("Kernel section is missing");
+    }
+    // TODO: Decide on page granularity
+    // TODO: Set proper memory attributes
+    let mut kernel_virt_page = read_linker_var!(__KERNEL_VIRT_START);
+    for phys_addr in (kernel_phys_start..kernel_phys_end).step_by(page_size) {
+        ttbr1.map_4kib_page(
+            kernel_virt_page as u64,
+            phys_addr as u64,
+            MemoryAttributes::DeviceStronglyOrdered,
+        );
+
+        kernel_virt_page += page_size;
+    }
 
     print!("Enabling MMU with identity mapping...");
     unsafe {
@@ -90,6 +111,10 @@ pub extern "C" fn bootloader_main(dtb_ptr: *const u8) -> ! {
     }
     println!("Success");
 
+    println!("Transferring control to kernel...\n");
+    let kernel_entry: extern "C" fn() -> ! =
+        unsafe { core::mem::transmute(read_linker_var!(__KERNEL_VIRT_START)) };
+    kernel_entry();
     loop {}
 }
 

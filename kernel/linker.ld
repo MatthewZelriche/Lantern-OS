@@ -2,11 +2,8 @@ INCLUDE ../../../common.ld
 
 ENTRY(kmain)
 
-/* TODO: FOR TESTING ONLY: CHANGE WHEN WE ARE READY FOR HIGHER HALF */
-__START_ADDR = 0x1488000;
-
 SECTIONS {
-   . = __START_ADDR;
+   . = __KERNEL_VIRT_START;
    .text : {
     *(.text.boot) /* This section is manually set in main.rs to ensure entry point is at __START_ADDR */
     *(.text)

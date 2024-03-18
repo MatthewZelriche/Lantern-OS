@@ -40,13 +40,15 @@ SECTIONS {
    . = ALIGN(__PG_SIZE);
    __STACK_END = .;
    . += __PG_SIZE * 2;
-    __STACK_START = .;
+   __STACK_START = .;
 
-    . = ALIGN(__PG_SIZE);
+   . = ALIGN(__PG_SIZE);
+   . += __PG_SIZE;
+   __KERNEL_PHYS_START = .;
     .kernel : {
       *(.kernel)
+      KEEP(*(.kernel))  /* To prevent the linker from stripping this unreferenced section out */
     }
-
-    . = ALIGN(__PG_SIZE);
-    __KERNEL_END = .;
+   . = ALIGN(__PG_SIZE);
+    __KERNEL_PHYS_END = .;
 }

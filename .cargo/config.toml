@@ -1,2 +1,5 @@
 [target.aarch64-unknown-none]
 runner = "./runners/raspi.sh"
+rustflags = [
+    "-C", "code-model=large"
+]
