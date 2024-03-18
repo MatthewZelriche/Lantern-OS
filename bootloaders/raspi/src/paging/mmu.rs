@@ -8,7 +8,10 @@ use super::page_table::PageTable;
 
 pub unsafe fn enable_mmu<A: FrameAllocator>(ttbr0: &mut PageTable<A>, ttbr1: &mut PageTable<A>) {
     // idx 0: Strongly Ordered Device memory
-    MAIR_EL1.write(MAIR_EL1::Attr0_Device::nonGathering_nonReordering_noEarlyWriteAck);
+    MAIR_EL1.write(
+        MAIR_EL1::Attr0_Device::nonGathering_nonReordering_noEarlyWriteAck
+            + MAIR_EL1::Attr1_Normal_Inner::WriteBack_NonTransient_ReadWriteAlloc,
+    );
 
     // Set base addr for page tables
     TTBR0_EL1.set_baddr(ttbr0.as_raw() as u64);

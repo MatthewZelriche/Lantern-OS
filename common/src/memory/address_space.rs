@@ -3,6 +3,7 @@ use crate::util::error::AddressSpaceError;
 
 pub enum MemoryAttributes {
     DeviceStronglyOrdered,
+    NormalCacheable,
 }
 
 pub trait AddressSpace {

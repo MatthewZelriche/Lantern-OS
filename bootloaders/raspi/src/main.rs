@@ -98,14 +98,13 @@ pub extern "C" fn bootloader_main(dtb_ptr: *const u8) -> ! {
         panic!("Kernel section is missing");
     }
     // TODO: Decide on page granularity
-    // TODO: Set proper memory attributes
     let kernel_virt_start = read_linker_var!(__KERNEL_VIRT_START);
     let mut kernel_virt_page = kernel_virt_start;
     for phys_addr in (kernel_phys_start..kernel_phys_end).step_by(page_size) {
         ttbr1.map_4kib_page(
             kernel_virt_page as u64,
             phys_addr as u64,
-            MemoryAttributes::DeviceStronglyOrdered,
+            MemoryAttributes::NormalCacheable,
         );
 
         kernel_virt_page += page_size;
@@ -127,7 +126,7 @@ pub extern "C" fn bootloader_main(dtb_ptr: *const u8) -> ! {
         ttbr1.map_4kib_page(
             kernel_virt_page as u64,
             phys_addr as u64,
-            MemoryAttributes::DeviceStronglyOrdered,
+            MemoryAttributes::NormalCacheable,
         );
 
         kernel_virt_page += page_size;
