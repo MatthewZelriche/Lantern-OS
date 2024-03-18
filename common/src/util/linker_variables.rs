@@ -1,7 +1,5 @@
 extern "C" {
     pub static __PG_SIZE: u8;
-    pub static __KERNEL_PHYS_START: u8;
-    pub static __KERNEL_PHYS_END: u8;
     pub static __KERNEL_VIRT_START: u8;
 }
 

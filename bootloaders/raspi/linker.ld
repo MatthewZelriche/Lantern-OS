@@ -43,7 +43,6 @@ SECTIONS {
    __STACK_START = .;
 
    . = ALIGN(__PG_SIZE);
-   . += __PG_SIZE;
    __KERNEL_PHYS_START = .;
     .kernel : {
       *(.kernel)

@@ -38,9 +38,9 @@ cargo make clean
 - [X] Implement safe global kprint macros for use in bootloader and kernel
 - [X] Set up custom test framework
 - [X] Implement physical page frame allocator
+- [X] Enable the MMU to an identity mapping
+- [X] Adjust virtual memory to load kernel in the higher half
 - [ ] Parse dtb and construct a memory map
-- [ ] Enable the MMU to an identity mapping
 - [ ] Implement synchronization primitives with MMU support (mutex, barrier)
 - [ ] Initialize secondary cores
-- [ ] Adjust virtual memory to load kernel in the higher half
 - [ ] Framebuffer driver for printing to the screen 

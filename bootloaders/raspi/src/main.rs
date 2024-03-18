@@ -9,9 +9,7 @@ use common::{
     concurrency::single_threaded_lock::SingleThreadedLock,
     memory::address_space::MemoryAttributes,
     read_linker_var,
-    util::linker_variables::{
-        __KERNEL_PHYS_END, __KERNEL_PHYS_START, __KERNEL_VIRT_START, __PG_SIZE,
-    },
+    util::linker_variables::{__KERNEL_VIRT_START, __PG_SIZE},
 };
 use core::arch::global_asm;
 use device_drivers::{
@@ -38,6 +36,13 @@ mod writer_mutexes;
 
 global_asm!(include_str!("main.S"));
 global_asm!(include_str!("kernel.S"));
+
+extern "C" {
+    pub static __STACK_END: u8;
+    pub static __STACK_START: u8;
+    pub static __KERNEL_PHYS_START: u8;
+    pub static __KERNEL_PHYS_END: u8;
+}
 
 #[no_mangle]
 pub extern "C" fn bootloader_main(dtb_ptr: *const u8) -> ! {
@@ -94,7 +99,8 @@ pub extern "C" fn bootloader_main(dtb_ptr: *const u8) -> ! {
     }
     // TODO: Decide on page granularity
     // TODO: Set proper memory attributes
-    let mut kernel_virt_page = read_linker_var!(__KERNEL_VIRT_START);
+    let kernel_virt_start = read_linker_var!(__KERNEL_VIRT_START);
+    let mut kernel_virt_page = kernel_virt_start;
     for phys_addr in (kernel_phys_start..kernel_phys_end).step_by(page_size) {
         ttbr1.map_4kib_page(
             kernel_virt_page as u64,
@@ -104,6 +110,48 @@ pub extern "C" fn bootloader_main(dtb_ptr: *const u8) -> ! {
 
         kernel_virt_page += page_size;
     }
+    println!(
+        "Mapped kernel to range {:#X} - {:#X}",
+        kernel_virt_start, kernel_virt_page
+    );
+    // Next, map the stack to the higher half
+    let stack_phys_end = read_linker_var!(__STACK_END);
+    let stack_phys_start = read_linker_var!(__STACK_START);
+    let stack_virt_start = kernel_virt_page;
+    if stack_phys_end % page_size != 0 || stack_phys_start % page_size != 0 {
+        panic!("Stack start and end must be divisible by page size");
+    } else if stack_phys_end == stack_phys_start {
+        panic!("Stack section is missing (How?!)");
+    }
+    for phys_addr in (stack_phys_end..stack_phys_start).step_by(page_size) {
+        ttbr1.map_4kib_page(
+            kernel_virt_page as u64,
+            phys_addr as u64,
+            MemoryAttributes::DeviceStronglyOrdered,
+        );
+
+        kernel_virt_page += page_size;
+    }
+    println!(
+        "Mapped stack to range {:#X} - {:#X}",
+        stack_virt_start, kernel_virt_page
+    );
+    kernel_virt_page = kernel_virt_page.next_multiple_of(1024 * 1024 * 1024);
+    let linear_map_start = kernel_virt_page;
+    // Finally, map all of physical memory with 1GiB huge pages, so we have an easy phys -> virt translation
+    for addr in (0..0x200000000).step_by(1024 * 1024 * 1024) {
+        ttbr1.map_1gib_page(
+            kernel_virt_page as u64,
+            addr,
+            MemoryAttributes::DeviceStronglyOrdered,
+        );
+
+        kernel_virt_page += 1024 * 1024 * 1024;
+    }
+    println!(
+        "Linearly mapped physical memory to range {:#X} - {:#X}",
+        linear_map_start, kernel_virt_page
+    );
 
     print!("Enabling MMU with identity mapping...");
     unsafe {
@@ -115,7 +163,6 @@ pub extern "C" fn bootloader_main(dtb_ptr: *const u8) -> ! {
     let kernel_entry: extern "C" fn() -> ! =
         unsafe { core::mem::transmute(read_linker_var!(__KERNEL_VIRT_START)) };
     kernel_entry();
-    loop {}
 }
 
 fn early_init_uart() -> Pl011 {
