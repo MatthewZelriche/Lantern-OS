@@ -35,12 +35,39 @@ cargo make clean
 
 ## Roadmap
 - [X] Print Hello World with UART
-- [X] Implement safe global kprint macros for use in bootloader and kernel
-- [X] Set up custom test framework
-- [X] Implement physical page frame allocator
+- [X] Implement physical page frame allocator for bootloader
 - [X] Enable the MMU to an identity mapping
 - [X] Adjust virtual memory to load kernel in the higher half
-- [ ] Parse dtb and construct a memory map
+- [X] Parse dtb and construct a memory map
 - [ ] Implement synchronization primitives with MMU support (mutex, barrier)
+- [ ] Properly transfer control from bootloader to kernel entry point on main core
+- [ ] Create device driver for hardware timer
 - [ ] Initialize secondary cores
+- [ ] Implement kernel heap and enable alloc crate for kernel
 - [ ] Framebuffer driver for printing to the screen 
+
+## Sample Output
+```
+PL011 UART0 Device Driver initialized
+Reserved range AB000 - AAB000 for bootloader frame allocation
+Temporarily identity mapping first 4 GiB of address space
+Mapped kernel to range 0xFFFF000000000000 - 0xFFFF000000001000
+Mapped stack to range 0xFFFF000000001000 - 0xFFFF000000003000
+Linearly mapped physical memory to range 0xFFFF000040000000 - 0xFFFF000240000000
+Printing physical memory map:
+
+Page size:      4.000 KiB
+Free Memory:    1.937 GiB
+Free Pages:     507895
+Reserved Pages: 9
+Type: Reserved   | 0x0000000000000000 - 0x0000000000001000 | 4.000 KiB
+Type: Free       | 0x0000000000001000 - 0x00000000000a8000 | 668.000 KiB
+Type: Stack      | 0x00000000000a8000 - 0x00000000000aa000 | 8.000 KiB
+Type: Kernel     | 0x00000000000aa000 - 0x00000000000ab000 | 4.000 KiB
+Type: Reserved   | 0x00000000000ab000 - 0x00000000000b0000 | 20.000 KiB
+Type: Free       | 0x00000000000b0000 - 0x000000003c000000 | 959.312 MiB
+Type: Free       | 0x0000000040000000 - 0x0000000080000000 | 1.000 GiB
+
+Enabling MMU with identity mapping...Success
+Transferring control to kernel...
+```

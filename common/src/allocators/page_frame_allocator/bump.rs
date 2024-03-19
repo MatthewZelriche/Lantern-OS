@@ -53,6 +53,10 @@ impl SingleThreadedBumpPFA {
     pub fn new(inner: SingleThreadedLock<BumpPFA>) -> Self {
         Self(inner)
     }
+
+    pub fn allocated_range(&self) -> (usize, usize) {
+        self.0.lock().allocated_range()
+    }
 }
 
 unsafe impl<'a> FrameAllocator for &'a SingleThreadedBumpPFA {

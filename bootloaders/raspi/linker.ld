@@ -16,6 +16,7 @@ __START_ADDR = 0x80000;
 
 SECTIONS {
    . = __START_ADDR;
+   __BOOTLOADER_START = .;
    .text : {
     *(.text.boot) /* This section is manually set in main.S to ensure entry point is at __START_ADDR */
     *(.text)
@@ -38,6 +39,7 @@ SECTIONS {
    
    /* Put our stack on the next page after the kernel */
    . = ALIGN(__PG_SIZE);
+   __BOOTLOADER_END = .;
    __STACK_END = .;
    . += __PG_SIZE * 2;
    __STACK_START = .;

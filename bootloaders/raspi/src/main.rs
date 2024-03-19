@@ -5,9 +5,19 @@
 #![reexport_test_harness_main = "test_main"]
 
 use common::{
-    allocators::page_frame_allocator::bump::{BumpPFA, SingleThreadedBumpPFA},
+    allocators::{
+        page_frame_allocator::{
+            bump::{BumpPFA, SingleThreadedBumpPFA},
+            FrameAllocator,
+        },
+        static_bump::StaticBumpAlloc,
+    },
     concurrency::single_threaded_lock::SingleThreadedLock,
-    memory::address_space::MemoryAttributes,
+    memory::{
+        address_space::MemoryAttributes,
+        memory_map::{MemoryMap, MemoryMapEntry, MemoryMapType},
+        memory_size::MemorySize,
+    },
     read_linker_var,
     util::linker_variables::{__KERNEL_VIRT_START, __PG_SIZE},
 };
@@ -22,6 +32,7 @@ use crate::{
         message::{SetClockRate, CLOCK_UART},
         Mailbox, MAILBOX_PHYS_BASE,
     },
+    device_tree::RaspiDeviceTree,
     paging::{mmu::enable_mmu, page_table::PageTable},
 };
 
@@ -40,6 +51,8 @@ global_asm!(include_str!("kernel.S"));
 extern "C" {
     pub static __STACK_END: u8;
     pub static __STACK_START: u8;
+    pub static __BOOTLOADER_START: u8;
+    pub static __BOOTLOADER_END: u8;
     pub static __KERNEL_PHYS_START: u8;
     pub static __KERNEL_PHYS_END: u8;
 }
@@ -135,6 +148,16 @@ pub extern "C" fn bootloader_main(dtb_ptr: *const u8) -> ! {
         "Mapped stack to range {:#X} - {:#X}",
         stack_virt_start, kernel_virt_page
     );
+    // Construct a bump allocator with a single page of memory, and map it
+    // This will store things like our Arch object and our MemoryMap entries.
+    // TODO: Adjust this so it works with non 4kib pages
+    let phys_page = (&pfa).allocate_zeroed_pages(1, |x| x).unwrap();
+    let mut bump_allocator = unsafe { StaticBumpAlloc::new(phys_page, 4096) };
+    ttbr1.map_4kib_page(
+        kernel_virt_page as u64,
+        phys_page as u64,
+        MemoryAttributes::NormalCacheable,
+    );
     kernel_virt_page = kernel_virt_page.next_multiple_of(1024 * 1024 * 1024);
     let linear_map_start = kernel_virt_page;
     // Finally, map all of physical memory with 1GiB huge pages, so we have an easy phys -> virt translation
@@ -150,6 +173,52 @@ pub extern "C" fn bootloader_main(dtb_ptr: *const u8) -> ! {
     println!(
         "Linearly mapped physical memory to range {:#X} - {:#X}",
         linear_map_start, kernel_virt_page
+    );
+
+    // Prepare the memory map
+    let mut mem_map = MemoryMap::<32>::new_in(&mut bump_allocator).unwrap();
+    // Query physical memory ranges from dtb
+    let dtb = RaspiDeviceTree::new(dtb_ptr).unwrap();
+    dtb.for_each_memory(|start, size| {
+        mem_map.add_entry(MemoryMapEntry::new(
+            start as usize,
+            (start + size) as usize,
+            MemoryMapType::FREE,
+        ));
+    });
+    // Now start filling up the map with non-free regions
+    // Firstly, the first page is reserved because secondary CPUs are parked there
+    mem_map.add_entry(MemoryMapEntry::new(0, page_size, MemoryMapType::RESERVED));
+    // Next up, the stack
+    mem_map.add_entry(MemoryMapEntry::new(
+        stack_phys_end,
+        stack_phys_start,
+        MemoryMapType::STACK,
+    ));
+    // Next, the kernel
+    mem_map.add_entry(MemoryMapEntry::new(
+        kernel_phys_start,
+        kernel_phys_end,
+        MemoryMapType::KERNEL,
+    ));
+    // Now we have to mark reserved memory for the page tables, etc that will be shared with the kernel
+    mem_map.add_entry(MemoryMapEntry::new(
+        pfa.allocated_range().0,
+        pfa.allocated_range().1,
+        MemoryMapType::RESERVED,
+    ));
+    println!(
+        "Printing physical memory map:\n\n\
+        Page size:      {}\n\
+        Free Memory:    {}\n\
+        Free Pages:     {}\n\
+        Reserved Pages: {}\n\
+        {}",
+        MemorySize::new(page_size),
+        MemorySize::new(mem_map.get_free_mem()),
+        mem_map.get_free_mem() / page_size,
+        (mem_map.get_total_mem() - mem_map.get_free_mem()) / page_size,
+        mem_map
     );
 
     print!("Enabling MMU with identity mapping...");
