@@ -1,3 +1,5 @@
+use core::fmt::Display;
+
 /// Convenience struct for converting between different memory units
 pub struct MemorySize {
     bytes: usize,
@@ -56,5 +58,18 @@ impl MemorySize {
 
     pub fn as_tebibytes(&self) -> f64 {
         self.bytes as f64 / TIB_SIZE as f64
+    }
+}
+
+impl Display for MemorySize {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        match self {
+            x if x.as_bytes() < 1024 => write!(f, "{} B", self.as_bytes()),
+            x if x.as_kibibytes() < 1024.0 => write!(f, "{:.3} KiB", self.as_kibibytes()),
+            x if x.as_mebibytes() < 1024.0 => write!(f, "{:.3} MiB", self.as_mebibytes()),
+            x if x.as_gibibytes() < 1024.0 => write!(f, "{:.3} GiB", self.as_gibibytes()),
+            x if x.as_tebibytes() < 1024.0 => write!(f, "{:.3} TiB", self.as_tebibytes()),
+            _ => write!(f, "{} B", self.as_bytes()),
+        }
     }
 }
